@@ -1,13 +1,13 @@
 {
   "name": "flat-api",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "description": "JavaScript Client for Flat REST API (https://flat.io)",
   "license": "Apache-2.0",
   "repository": "https://github.com/FlatIO/api-client-js.git",
   "main": "src/index.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha --recursive",
-    "build": "./node_modules/.bin/browserify src/index.js > build/flat-api.js && cd build && ../node_modules/.bin/uglifyjs flat-api.js --source-map flat-api.js.map",
+    "build": "./node_modules/.bin/browserify src/index.js > build/flat-api.js && cd build && ../node_modules/.bin/uglifyjs flat-api.js --source-map flat-api.js.map > flat-api.min.js",
     "prepublish": "npm build"
   },
   "dependencies": {
