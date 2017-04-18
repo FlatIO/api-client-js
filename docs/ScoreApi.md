@@ -240,7 +240,7 @@ null (empty response body)
 
 <a name="deleteScoreComment"></a>
 # **deleteScoreComment**
-> deleteScoreComment(score, comment)
+> deleteScoreComment(score, comment, opts)
 
 Delete a comment
 
@@ -259,6 +259,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var comment = "comment_example"; // String | Unique identifier of a sheet music comment 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -267,7 +270,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully.');
   }
 };
-apiInstance.deleteScoreComment(score, comment, callback);
+apiInstance.deleteScoreComment(score, comment, opts, callback);
 ```
 
 ### Parameters
@@ -276,6 +279,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **comment** | **String**| Unique identifier of a sheet music comment  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -347,7 +351,7 @@ Name | Type | Description  | Notes
 
 <a name="forkScore"></a>
 # **forkScore**
-> ScoreDetails forkScore(score, body)
+> ScoreDetails forkScore(score, body, opts)
 
 Fork a score
 
@@ -368,6 +372,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var body = new FlatApi.ScoreFork(); // ScoreFork | 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -376,7 +383,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.forkScore(score, body, callback);
+apiInstance.forkScore(score, body, opts, callback);
 ```
 
 ### Parameters
@@ -385,6 +392,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **body** | [**ScoreFork**](ScoreFork.md)|  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -504,7 +512,7 @@ No authorization required
 
 <a name="getScore"></a>
 # **getScore**
-> ScoreDetails getScore(score, )
+> ScoreDetails getScore(score, , opts)
 
 Get a score&#39;s metadata
 
@@ -523,6 +531,9 @@ var apiInstance = new FlatApi.ScoreApi();
 
 var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -531,7 +542,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScore(score, , callback);
+apiInstance.getScore(score, , opts, callback);
 ```
 
 ### Parameters
@@ -539,6 +550,7 @@ apiInstance.getScore(score, , callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -555,7 +567,7 @@ Name | Type | Description  | Notes
 
 <a name="getScoreCollaborator"></a>
 # **getScoreCollaborator**
-> ScoreCollaborator getScoreCollaborator(score, collaborator)
+> ScoreCollaborator getScoreCollaborator(score, collaborator, opts)
 
 Get a collaborator
 
@@ -576,6 +588,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var collaborator = "collaborator_example"; // String | Unique identifier of a **collaborator permission**, or unique identifier of a **User**, or unique identifier of a **Group** 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -584,7 +599,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreCollaborator(score, collaborator, callback);
+apiInstance.getScoreCollaborator(score, collaborator, opts, callback);
 ```
 
 ### Parameters
@@ -593,6 +608,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **collaborator** | **String**| Unique identifier of a **collaborator permission**, or unique identifier of a **User**, or unique identifier of a **Group**  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -609,7 +625,7 @@ Name | Type | Description  | Notes
 
 <a name="getScoreCollaborators"></a>
 # **getScoreCollaborators**
-> [ScoreCollaborator] getScoreCollaborators(score, )
+> [ScoreCollaborator] getScoreCollaborators(score, , opts)
 
 List the collaborators
 
@@ -628,6 +644,9 @@ var apiInstance = new FlatApi.ScoreApi();
 
 var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -636,7 +655,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreCollaborators(score, , callback);
+apiInstance.getScoreCollaborators(score, , opts, callback);
 ```
 
 ### Parameters
@@ -644,6 +663,7 @@ apiInstance.getScoreCollaborators(score, , callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -660,7 +680,7 @@ Name | Type | Description  | Notes
 
 <a name="getScoreComments"></a>
 # **getScoreComments**
-> [ScoreComment] getScoreComments(score, )
+> [ScoreComment] getScoreComments(score, , opts)
 
 List comments
 
@@ -679,6 +699,9 @@ var apiInstance = new FlatApi.ScoreApi();
 
 var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -687,7 +710,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreComments(score, , callback);
+apiInstance.getScoreComments(score, , opts, callback);
 ```
 
 ### Parameters
@@ -695,6 +718,7 @@ apiInstance.getScoreComments(score, , callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -711,7 +735,7 @@ Name | Type | Description  | Notes
 
 <a name="getScoreRevision"></a>
 # **getScoreRevision**
-> ScoreRevision getScoreRevision(score, revision, )
+> ScoreRevision getScoreRevision(score, revision, , opts)
 
 Get a score revision
 
@@ -727,6 +751,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var revision = "revision_example"; // String | Unique identifier of a score revision. You can use `last` to fetch the information related to the last version created. 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -735,7 +762,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreRevision(score, revision, , callback);
+apiInstance.getScoreRevision(score, revision, , opts, callback);
 ```
 
 ### Parameters
@@ -744,6 +771,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **revision** | **String**| Unique identifier of a score revision. You can use &#x60;last&#x60; to fetch the information related to the last version created.  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -760,7 +788,7 @@ No authorization required
 
 <a name="getScoreRevisionData"></a>
 # **getScoreRevisionData**
-> getScoreRevisionData(score, revision, format, opts)
+> &#39;Blob&#39; getScoreRevisionData(score, revision, format, opts)
 
 Get a score revision data
 
@@ -779,6 +807,7 @@ var revision = "revision_example"; // String | Unique identifier of a score revi
 var format = "format_example"; // String | The format of the file you will retrieve
 
 var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
   'onlyCached': true, // Boolean | Only return files already generated and cached in Flat's production cache. If the file is not availabe, a 404 will be returned 
   'parts': "parts_example" // String | An optional a set of parts to be exported. This parameter must be specified with a list of integers. For example \"1,2,5\". 
 };
@@ -787,7 +816,7 @@ var callback = function(error, data, response) {
   if (error) {
     console.error(error);
   } else {
-    console.log('API called successfully.');
+    console.log('API called successfully. Returned data: ' + data);
   }
 };
 apiInstance.getScoreRevisionData(score, revision, format, opts, callback);
@@ -800,12 +829,13 @@ Name | Type | Description  | Notes
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **revision** | **String**| Unique identifier of a score revision. You can use &#x60;last&#x60; to fetch the information related to the last version created.  | 
  **format** | **String**| The format of the file you will retrieve | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
  **onlyCached** | **Boolean**| Only return files already generated and cached in Flat&#39;s production cache. If the file is not availabe, a 404 will be returned  | [optional] 
  **parts** | **String**| An optional a set of parts to be exported. This parameter must be specified with a list of integers. For example \&quot;1,2,5\&quot;.  | [optional] 
 
 ### Return type
 
-null (empty response body)
+**&#39;Blob&#39;**
 
 ### Authorization
 
@@ -818,7 +848,7 @@ No authorization required
 
 <a name="getScoreRevisions"></a>
 # **getScoreRevisions**
-> [ScoreRevision] getScoreRevisions(score, )
+> [ScoreRevision] getScoreRevisions(score, , opts)
 
 List the revisions
 
@@ -837,6 +867,9 @@ var apiInstance = new FlatApi.ScoreApi();
 
 var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -845,7 +878,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreRevisions(score, , callback);
+apiInstance.getScoreRevisions(score, , opts, callback);
 ```
 
 ### Parameters
@@ -853,6 +886,7 @@ apiInstance.getScoreRevisions(score, , callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -924,7 +958,7 @@ Name | Type | Description  | Notes
 
 <a name="markScoreCommentResolved"></a>
 # **markScoreCommentResolved**
-> markScoreCommentResolved(score, comment)
+> markScoreCommentResolved(score, comment, opts)
 
 Mark the comment as resolved
 
@@ -943,6 +977,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var comment = "comment_example"; // String | Unique identifier of a sheet music comment 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -951,7 +988,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully.');
   }
 };
-apiInstance.markScoreCommentResolved(score, comment, callback);
+apiInstance.markScoreCommentResolved(score, comment, opts, callback);
 ```
 
 ### Parameters
@@ -960,6 +997,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **comment** | **String**| Unique identifier of a sheet music comment  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -976,7 +1014,7 @@ null (empty response body)
 
 <a name="markScoreCommentUnresolved"></a>
 # **markScoreCommentUnresolved**
-> markScoreCommentUnresolved(score, comment)
+> markScoreCommentUnresolved(score, comment, opts)
 
 Mark the comment as unresolved
 
@@ -995,6 +1033,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var comment = "comment_example"; // String | Unique identifier of a sheet music comment 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -1003,7 +1044,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully.');
   }
 };
-apiInstance.markScoreCommentUnresolved(score, comment, callback);
+apiInstance.markScoreCommentUnresolved(score, comment, opts, callback);
 ```
 
 ### Parameters
@@ -1012,6 +1053,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **comment** | **String**| Unique identifier of a sheet music comment  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -1028,7 +1070,7 @@ null (empty response body)
 
 <a name="postScoreComment"></a>
 # **postScoreComment**
-> ScoreComment postScoreComment(score, body)
+> ScoreComment postScoreComment(score, body, opts)
 
 Post a new comment
 
@@ -1049,6 +1091,9 @@ var score = "score_example"; // String | Unique identifier of the score document
 
 var body = new FlatApi.ScoreCommentCreation(); // ScoreCommentCreation | 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -1057,7 +1102,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.postScoreComment(score, body, callback);
+apiInstance.postScoreComment(score, body, opts, callback);
 ```
 
 ### Parameters
@@ -1066,6 +1111,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **body** | [**ScoreCommentCreation**](ScoreCommentCreation.md)|  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 
@@ -1136,7 +1182,7 @@ null (empty response body)
 
 <a name="updateScoreComment"></a>
 # **updateScoreComment**
-> ScoreComment updateScoreComment(score, commentbody)
+> ScoreComment updateScoreComment(score, commentbody, opts)
 
 Update an existing comment
 
@@ -1157,6 +1203,9 @@ var comment = "comment_example"; // String | Unique identifier of a sheet music 
 
 var body = new FlatApi.ScoreCommentUpdate(); // ScoreCommentUpdate | 
 
+var opts = { 
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+};
 
 var callback = function(error, data, response) {
   if (error) {
@@ -1165,7 +1214,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.updateScoreComment(score, commentbody, callback);
+apiInstance.updateScoreComment(score, commentbody, opts, callback);
 ```
 
 ### Parameters
@@ -1175,6 +1224,7 @@ Name | Type | Description  | Notes
  **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
  **comment** | **String**| Unique identifier of a sheet music comment  | 
  **body** | [**ScoreCommentUpdate**](ScoreCommentUpdate.md)|  | 
+ **sharingKey** | **String**| This sharing key must be specified to access to a score with a &#x60;privacy&#x60; mode set to &#x60;privateLink&#x60; and the current user is not a collaborator of the document.  | [optional] 
 
 ### Return type
 

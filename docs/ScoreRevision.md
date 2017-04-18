@@ -3,6 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**id** | **String** | The unique identifier of the revision. | [optional] 
 **user** | **String** | The user identifier who created the revision | [optional] 
 **collaborators** | **[String]** |  | [optional] 
 **creationDate** | **Date** | The date when this revision was created | [optional] 

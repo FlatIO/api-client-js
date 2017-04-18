@@ -9,4 +9,6 @@
 
 * `organizationPublic` (value: `"organizationPublic"`)
 
+* `privateLink` (value: `"privateLink"`)
+
 

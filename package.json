@@ -1,6 +1,6 @@
 {
   "name": "flat-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JavaScript Client for Flat REST API (https://flat.io)",
   "license": "Apache-2.0",
   "repository": "https://github.com/FlatIO/api-client-js.git",
