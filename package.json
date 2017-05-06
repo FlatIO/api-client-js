@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "superagent": "3.5.2",
-    "uglify-js": "^2.8.22"
+    "uglify-js": "^3.0.0"
   },
   "devDependencies": {
     "browserify": "^14.3.0",
