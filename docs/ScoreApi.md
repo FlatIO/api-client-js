@@ -20,6 +20,7 @@ Method | HTTP request | Description
 [**getScoreRevision**](ScoreApi.md#getScoreRevision) | **GET** /scores/{score}/revisions/{revision} | Get a score revision
 [**getScoreRevisionData**](ScoreApi.md#getScoreRevisionData) | **GET** /scores/{score}/revisions/{revision}/{format} | Get a score revision data
 [**getScoreRevisions**](ScoreApi.md#getScoreRevisions) | **GET** /scores/{score}/revisions | List the revisions
+[**getScoreSubmissions**](ScoreApi.md#getScoreSubmissions) | **GET** /scores/{score}/submissions | List submissions related to the score
 [**getUserScores**](ScoreApi.md#getUserScores) | **GET** /users/{user}/scores | List user&#39;s scores
 [**markScoreCommentResolved**](ScoreApi.md#markScoreCommentResolved) | **PUT** /scores/{score}/comments/{comment}/resolved | Mark the comment as resolved
 [**markScoreCommentUnresolved**](ScoreApi.md#markScoreCommentUnresolved) | **DELETE** /scores/{score}/comments/{comment}/resolved | Mark the comment as unresolved
@@ -39,7 +40,7 @@ Share a score with a single user or a group. This API call allows to add, invite
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -93,7 +94,7 @@ Use this API method to **create a new music score in the current User account**.
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -144,7 +145,7 @@ Update a score by uploading a new revision for this one.
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -198,7 +199,7 @@ This API call will schedule the deletion of the score, its revisions, and whole 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -247,7 +248,7 @@ Delete a comment
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -305,7 +306,7 @@ This API method allows you to change the metadata of a score document (e.g. its 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -360,7 +361,7 @@ This API call will make a copy of the last revision of the specified score and c
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -416,7 +417,7 @@ List liked scores
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -471,10 +472,15 @@ Get the list of scores shared with a group.
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
 var apiInstance = new FlatApi.ScoreApi();
 
-var group = "group_example"; // String | Unique identifier of the group
+var group = "group_example"; // String | Unique identifier of a Flat group 
 
 var opts = { 
   'parent': "parent_example" // String | Filter the score forked from the score id `parent`
@@ -494,7 +500,7 @@ apiInstance.getGroupScores(group, opts, callback);
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **group** | **String**| Unique identifier of the group | 
+ **group** | **String**| Unique identifier of a Flat group  | 
  **parent** | **String**| Filter the score forked from the score id &#x60;parent&#x60; | [optional] 
 
 ### Return type
@@ -503,7 +509,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[OAuth2](../README.md#OAuth2)
 
 ### HTTP request headers
 
@@ -521,7 +527,7 @@ Get the details of a score identified by the &#x60;score&#x60; parameter in the 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -576,7 +582,7 @@ Get the information about a collaborator (User or Group).
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -634,7 +640,7 @@ This API call will list the different collaborators of a score and their rights 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -689,7 +695,7 @@ This method lists the different comments added on a music score (documents and i
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -744,6 +750,11 @@ When creating a score or saving a new version of a score, a revision is created 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
 var apiInstance = new FlatApi.ScoreApi();
 
@@ -779,7 +790,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[OAuth2](../README.md#OAuth2)
 
 ### HTTP request headers
 
@@ -797,6 +808,11 @@ Retrieve the file corresponding to a score revision (the following formats are a
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
 var apiInstance = new FlatApi.ScoreApi();
 
@@ -839,7 +855,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[OAuth2](../README.md#OAuth2)
 
 ### HTTP request headers
 
@@ -857,7 +873,7 @@ When creating a score or saving a new version of a score, a revision is created 
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -901,6 +917,57 @@ Name | Type | Description  | Notes
  - **Content-Type**: application/json
  - **Accept**: application/json
 
+<a name="getScoreSubmissions"></a>
+# **getScoreSubmissions**
+> [AssignmentSubmission] getScoreSubmissions(score, )
+
+List submissions related to the score
+
+This API call will list the different assignments submissions where the score is attached. This method can be used by anyone that are part of the organization and have at least read access to the document. 
+
+### Example
+```javascript
+var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
+
+var apiInstance = new FlatApi.ScoreApi();
+
+var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
+
+
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully. Returned data: ' + data);
+  }
+};
+apiInstance.getScoreSubmissions(score, , callback);
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **score** | **String**| Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;).  | 
+
+### Return type
+
+[**[AssignmentSubmission]**](AssignmentSubmission.md)
+
+### Authorization
+
+[OAuth2](../README.md#OAuth2)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
 <a name="getUserScores"></a>
 # **getUserScores**
 > [ScoreDetails] getUserScores(user, opts)
@@ -912,7 +979,7 @@ Get the list of scores owned by the User
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -965,7 +1032,7 @@ Mark the comment as resolved
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -1021,7 +1088,7 @@ Mark the comment as unresolved
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -1079,7 +1146,7 @@ Post a document or a contextualized comment on a document.  Please note that thi
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -1137,7 +1204,7 @@ Remove the specified collaborator from the score
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -1189,7 +1256,7 @@ Update an existing comment
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];

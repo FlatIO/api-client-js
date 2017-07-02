@@ -18,7 +18,7 @@ Get details about the current authenticated User.
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];

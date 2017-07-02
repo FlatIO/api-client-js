@@ -83,7 +83,35 @@ All URIs are relative to *https://api.flat.io/v2*
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *FlatApi.AccountApi* | [**getAuthenticatedUser**](docs/AccountApi.md#getAuthenticatedUser) | **GET** /me | Get current user profile
+*FlatApi.ClassApi* | [**addClassUser**](docs/ClassApi.md#addClassUser) | **PUT** /classes/{class}/users/{user} | Add a user to the class
+*FlatApi.ClassApi* | [**archiveClass**](docs/ClassApi.md#archiveClass) | **POST** /classes/{class}/archive | Archive the class
+*FlatApi.ClassApi* | [**copyAssignment**](docs/ClassApi.md#copyAssignment) | **POST** /classes/{class}/assignments/{assignment}/copy | Copy an assignment
+*FlatApi.ClassApi* | [**createAssignment**](docs/ClassApi.md#createAssignment) | **POST** /classes/{class}/assignments | Assignment creation
+*FlatApi.ClassApi* | [**createClass**](docs/ClassApi.md#createClass) | **POST** /classes | Create a new class
+*FlatApi.ClassApi* | [**createSubmission**](docs/ClassApi.md#createSubmission) | **PUT** /classes/{class}/assignments/{assignment}/submissions | Create or edit a submission
+*FlatApi.ClassApi* | [**deleteClassUser**](docs/ClassApi.md#deleteClassUser) | **DELETE** /classes/{class}/users/{user} | Remove a user from the class
+*FlatApi.ClassApi* | [**editSubmission**](docs/ClassApi.md#editSubmission) | **PUT** /classes/{class}/assignments/{assignment}/submissions/{submission} | Edit a submission
+*FlatApi.ClassApi* | [**enrollClass**](docs/ClassApi.md#enrollClass) | **POST** /classes/enroll/{enrollmentCode} | Join a class
+*FlatApi.ClassApi* | [**getClass**](docs/ClassApi.md#getClass) | **GET** /classes/{class} | Get the details of a single class
+*FlatApi.ClassApi* | [**getScoreSubmissions**](docs/ClassApi.md#getScoreSubmissions) | **GET** /scores/{score}/submissions | List submissions related to the score
+*FlatApi.ClassApi* | [**getSubmission**](docs/ClassApi.md#getSubmission) | **GET** /classes/{class}/assignments/{assignment}/submissions/{submission} | Get a student submission
+*FlatApi.ClassApi* | [**getSubmissions**](docs/ClassApi.md#getSubmissions) | **GET** /classes/{class}/assignments/{assignment}/submissions | List the students&#39; submissions
+*FlatApi.ClassApi* | [**listAssignments**](docs/ClassApi.md#listAssignments) | **GET** /classes/{class}/assignments | Assignments listing
+*FlatApi.ClassApi* | [**listClassStudentSubmissions**](docs/ClassApi.md#listClassStudentSubmissions) | **GET** /classes/{class}/students/{user}/submissions | List the submissions for a student
+*FlatApi.ClassApi* | [**listClasses**](docs/ClassApi.md#listClasses) | **GET** /classes | List the classes available for the current user
+*FlatApi.ClassApi* | [**unarchiveClass**](docs/ClassApi.md#unarchiveClass) | **DELETE** /classes/{class}/archive | Unarchive the class
+*FlatApi.ClassApi* | [**updateClass**](docs/ClassApi.md#updateClass) | **PUT** /classes/{class} | Update the class
+*FlatApi.GroupApi* | [**getGroupDetails**](docs/GroupApi.md#getGroupDetails) | **GET** /groups/{group} | Get group information
 *FlatApi.GroupApi* | [**getGroupScores**](docs/GroupApi.md#getGroupScores) | **GET** /groups/{group}/scores | List group&#39;s scores
+*FlatApi.GroupApi* | [**listGroupUsers**](docs/GroupApi.md#listGroupUsers) | **GET** /groups/{group}/users | List group&#39;s users
+*FlatApi.OrganizationApi* | [**createLtiCredentials**](docs/OrganizationApi.md#createLtiCredentials) | **POST** /organizations/lti/credentials | Create a new couple of LTI 1.x credentials
+*FlatApi.OrganizationApi* | [**createOrganizationInvitation**](docs/OrganizationApi.md#createOrganizationInvitation) | **POST** /organizations/invitations | Create a new invitation to join the organization
+*FlatApi.OrganizationApi* | [**createOrganizationUser**](docs/OrganizationApi.md#createOrganizationUser) | **POST** /organizations/users | Create a new user account
+*FlatApi.OrganizationApi* | [**listLtiCredentials**](docs/OrganizationApi.md#listLtiCredentials) | **GET** /organizations/lti/credentials | List LTI 1.x credentials
+*FlatApi.OrganizationApi* | [**listOrganizationInvitations**](docs/OrganizationApi.md#listOrganizationInvitations) | **GET** /organizations/invitations | List the organization invitations
+*FlatApi.OrganizationApi* | [**listOrganizationUsers**](docs/OrganizationApi.md#listOrganizationUsers) | **GET** /organizations/users | List the organization users
+*FlatApi.OrganizationApi* | [**removeOrganizationInvitation**](docs/OrganizationApi.md#removeOrganizationInvitation) | **DELETE** /organizations/invitations/{invitation} | Remove an organization invitation
+*FlatApi.OrganizationApi* | [**revokeLtiCredentials**](docs/OrganizationApi.md#revokeLtiCredentials) | **DELETE** /organizations/lti/credentials/{credentials} | Revoke LTI 1.x credentials
 *FlatApi.ScoreApi* | [**addScoreCollaborator**](docs/ScoreApi.md#addScoreCollaborator) | **POST** /scores/{score}/collaborators | Add a new collaborator
 *FlatApi.ScoreApi* | [**createScore**](docs/ScoreApi.md#createScore) | **POST** /scores | Create a new score
 *FlatApi.ScoreApi* | [**createScoreRevision**](docs/ScoreApi.md#createScoreRevision) | **POST** /scores/{score}/revisions | Create a new revision
@@ -100,6 +128,7 @@ Class | Method | HTTP request | Description
 *FlatApi.ScoreApi* | [**getScoreRevision**](docs/ScoreApi.md#getScoreRevision) | **GET** /scores/{score}/revisions/{revision} | Get a score revision
 *FlatApi.ScoreApi* | [**getScoreRevisionData**](docs/ScoreApi.md#getScoreRevisionData) | **GET** /scores/{score}/revisions/{revision}/{format} | Get a score revision data
 *FlatApi.ScoreApi* | [**getScoreRevisions**](docs/ScoreApi.md#getScoreRevisions) | **GET** /scores/{score}/revisions | List the revisions
+*FlatApi.ScoreApi* | [**getScoreSubmissions**](docs/ScoreApi.md#getScoreSubmissions) | **GET** /scores/{score}/submissions | List submissions related to the score
 *FlatApi.ScoreApi* | [**getUserScores**](docs/ScoreApi.md#getUserScores) | **GET** /users/{user}/scores | List user&#39;s scores
 *FlatApi.ScoreApi* | [**markScoreCommentResolved**](docs/ScoreApi.md#markScoreCommentResolved) | **PUT** /scores/{score}/comments/{comment}/resolved | Mark the comment as resolved
 *FlatApi.ScoreApi* | [**markScoreCommentUnresolved**](docs/ScoreApi.md#markScoreCommentUnresolved) | **DELETE** /scores/{score}/comments/{comment}/resolved | Mark the comment as unresolved
@@ -113,10 +142,38 @@ Class | Method | HTTP request | Description
 
 ## Documentation for Models
 
+ - [FlatApi.Assignment](docs/Assignment.md)
+ - [FlatApi.AssignmentCopy](docs/AssignmentCopy.md)
+ - [FlatApi.AssignmentCreation](docs/AssignmentCreation.md)
+ - [FlatApi.AssignmentSubmission](docs/AssignmentSubmission.md)
+ - [FlatApi.AssignmentSubmissionUpdate](docs/AssignmentSubmissionUpdate.md)
+ - [FlatApi.ClassAttachmentCreation](docs/ClassAttachmentCreation.md)
+ - [FlatApi.ClassCreation](docs/ClassCreation.md)
+ - [FlatApi.ClassDetails](docs/ClassDetails.md)
+ - [FlatApi.ClassDetailsCanvas](docs/ClassDetailsCanvas.md)
+ - [FlatApi.ClassDetailsGoogleClassroom](docs/ClassDetailsGoogleClassroom.md)
+ - [FlatApi.ClassDetailsGoogleDrive](docs/ClassDetailsGoogleDrive.md)
+ - [FlatApi.ClassDetailsLti](docs/ClassDetailsLti.md)
  - [FlatApi.ClassRoles](docs/ClassRoles.md)
+ - [FlatApi.ClassState](docs/ClassState.md)
+ - [FlatApi.ClassStreamPostMode](docs/ClassStreamPostMode.md)
+ - [FlatApi.ClassUpdate](docs/ClassUpdate.md)
  - [FlatApi.FlatErrorResponse](docs/FlatErrorResponse.md)
  - [FlatApi.FlatLocales](docs/FlatLocales.md)
+ - [FlatApi.GoogleClassroomCoursework](docs/GoogleClassroomCoursework.md)
+ - [FlatApi.GoogleClassroomSubmission](docs/GoogleClassroomSubmission.md)
  - [FlatApi.Group](docs/Group.md)
+ - [FlatApi.GroupDetails](docs/GroupDetails.md)
+ - [FlatApi.GroupType](docs/GroupType.md)
+ - [FlatApi.LicenseMode](docs/LicenseMode.md)
+ - [FlatApi.LicenseSources](docs/LicenseSources.md)
+ - [FlatApi.LmsName](docs/LmsName.md)
+ - [FlatApi.LtiCredentials](docs/LtiCredentials.md)
+ - [FlatApi.LtiCredentialsCreation](docs/LtiCredentialsCreation.md)
+ - [FlatApi.MediaAttachment](docs/MediaAttachment.md)
+ - [FlatApi.MediaScoreSharingMode](docs/MediaScoreSharingMode.md)
+ - [FlatApi.OrganizationInvitation](docs/OrganizationInvitation.md)
+ - [FlatApi.OrganizationInvitationCreation](docs/OrganizationInvitationCreation.md)
  - [FlatApi.OrganizationRoles](docs/OrganizationRoles.md)
  - [FlatApi.ScoreCollaborator](docs/ScoreCollaborator.md)
  - [FlatApi.ScoreCollaboratorCreation](docs/ScoreCollaboratorCreation.md)
@@ -128,7 +185,6 @@ Class | Method | HTTP request | Description
  - [FlatApi.ScoreCreation](docs/ScoreCreation.md)
  - [FlatApi.ScoreData](docs/ScoreData.md)
  - [FlatApi.ScoreDataEncoding](docs/ScoreDataEncoding.md)
- - [FlatApi.ScoreDetails](docs/ScoreDetails.md)
  - [FlatApi.ScoreFork](docs/ScoreFork.md)
  - [FlatApi.ScoreLikesCounts](docs/ScoreLikesCounts.md)
  - [FlatApi.ScoreModification](docs/ScoreModification.md)
@@ -141,9 +197,17 @@ Class | Method | HTTP request | Description
  - [FlatApi.ScoreSummary](docs/ScoreSummary.md)
  - [FlatApi.ScoreViewsCounts](docs/ScoreViewsCounts.md)
  - [FlatApi.UserBasics](docs/UserBasics.md)
- - [FlatApi.UserDetails](docs/UserDetails.md)
- - [FlatApi.UserPublic](docs/UserPublic.md)
+ - [FlatApi.UserCreation](docs/UserCreation.md)
+ - [FlatApi.UserDetailsAdminLicense](docs/UserDetailsAdminLicense.md)
+ - [FlatApi.ScoreDetails](docs/ScoreDetails.md)
  - [FlatApi.UserPublicSummary](docs/UserPublicSummary.md)
+ - [FlatApi.UserDetailsAdmin](docs/UserDetailsAdmin.md)
+ - [FlatApi.UserPublic](docs/UserPublic.md)
+ - [FlatApi.UserDetails](docs/UserDetails.md)
+
+
+## Documentation for Authorization
+
 
 ### OAuth2
 
@@ -156,7 +220,12 @@ Class | Method | HTTP request | Description
   - scores.readonly: Allows read-only access to all a user&#39;s scores. You won&#39;t need this scope to read public scores.
   - scores.social: Allow to post comments and like scores
   - scores: Full, permissive scope to access all of a user&#39;s scores.
-
-## Author
-
-Flat - developers@flat.io
+  - edu.classes: Full, permissive scope to manage the classes.
+  - edu.classes.readonly: Read-only access to the classes.
+  - edu.assignments: Read-write access to the assignments and submissions.
+  - edu.assignments.readonly: Read-only access to the assignments and submissions.
+  - edu.admin: Full, permissive scope to manage all the admin of an organization.
+  - edu.admin.lti: Access and manage the LTI Credentials for an organization.
+  - edu.admin.lti.readonly: Read-only access to the LTI Credentials of an organization.
+  - edu.admin.users: Access and manage the users and invitations of the organization.
+  - edu.admin.users.readonly: Read-only access to the users and invitations of the organization.

@@ -18,7 +18,7 @@ List liked scores
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -73,7 +73,7 @@ Get a public profile of a Flat User.
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];
@@ -124,7 +124,7 @@ Get the list of scores owned by the User
 ### Example
 ```javascript
 var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.default;
+var defaultClient = FlatApi.ApiClient.instance;
 
 // Configure OAuth2 access token for authorization: OAuth2
 var OAuth2 = defaultClient.authentications['OAuth2'];

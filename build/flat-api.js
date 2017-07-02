@@ -2255,38 +2255,6 @@ exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
 },{"./decode":6,"./encode":7}],9:[function(require,module,exports){
-
-/**
- * Reduce `arr` with `fn`.
- *
- * @param {Array} arr
- * @param {Function} fn
- * @param {Mixed} initial
- *
- * TODO: combatible error handling?
- */
-
-module.exports = function(arr, fn, initial){  
-  var idx = 0;
-  var len = arr.length;
-  var curr = arguments.length == 3
-    ? initial
-    : arr[idx++];
-
-  while (idx < len) {
-    curr = fn.call(null, curr, arr[idx], ++idx, arr);
-  }
-  
-  return curr;
-};
-},{}],10:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-
-var Emitter = require('emitter');
-var reduce = require('reduce');
-
 /**
  * Root reference for iframes.
  */
@@ -2297,8 +2265,16 @@ if (typeof window !== 'undefined') { // Browser window
 } else if (typeof self !== 'undefined') { // Web Worker
   root = self;
 } else { // Other environments
+  console.warn("Using browser-only version of superagent in non-browser environment");
   root = this;
 }
+
+var Emitter = require('component-emitter');
+var RequestBase = require('./request-base');
+var isObject = require('./is-object');
+var isFunction = require('./is-function');
+var ResponseBase = require('./response-base');
+var shouldRetry = require('./should-retry');
 
 /**
  * Noop.
@@ -2307,28 +2283,24 @@ if (typeof window !== 'undefined') { // Browser window
 function noop(){};
 
 /**
- * Check if `obj` is a host object,
- * we don't want to serialize these :)
- *
- * TODO: future proof, move to compoent land
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
+ * Expose `request`.
  */
 
-function isHost(obj) {
-  var str = {}.toString.call(obj);
-
-  switch (str) {
-    case '[object File]':
-    case '[object Blob]':
-    case '[object FormData]':
-      return true;
-    default:
-      return false;
+var request = exports = module.exports = function(method, url) {
+  // callback
+  if ('function' == typeof url) {
+    return new exports.Request('GET', method).end(url);
   }
+
+  // url first
+  if (1 == arguments.length) {
+    return new exports.Request('GET', method);
+  }
+
+  return new exports.Request(method, url);
 }
+
+exports.Request = Request;
 
 /**
  * Determine XHR.
@@ -2345,7 +2317,7 @@ request.getXHR = function () {
     try { return new ActiveXObject('Msxml2.XMLHTTP.3.0'); } catch(e) {}
     try { return new ActiveXObject('Msxml2.XMLHTTP'); } catch(e) {}
   }
-  return false;
+  throw Error("Browser-only verison of superagent could not find XHR");
 };
 
 /**
@@ -2361,18 +2333,6 @@ var trim = ''.trim
   : function(s) { return s.replace(/(^\s*|\s*$)/g, ''); };
 
 /**
- * Check if `obj` is an object.
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isObject(obj) {
-  return obj === Object(obj);
-}
-
-/**
  * Serialize the given `obj`.
  *
  * @param {Object} obj
@@ -2384,10 +2344,8 @@ function serialize(obj) {
   if (!isObject(obj)) return obj;
   var pairs = [];
   for (var key in obj) {
-    if (null != obj[key]) {
-      pushEncodedKeyValuePair(pairs, key, obj[key]);
-        }
-      }
+    pushEncodedKeyValuePair(pairs, key, obj[key]);
+  }
   return pairs.join('&');
 }
 
@@ -2401,13 +2359,22 @@ function serialize(obj) {
  */
 
 function pushEncodedKeyValuePair(pairs, key, val) {
-  if (Array.isArray(val)) {
-    return val.forEach(function(v) {
-      pushEncodedKeyValuePair(pairs, key, v);
-    });
+  if (val != null) {
+    if (Array.isArray(val)) {
+      val.forEach(function(v) {
+        pushEncodedKeyValuePair(pairs, key, v);
+      });
+    } else if (isObject(val)) {
+      for(var subkey in val) {
+        pushEncodedKeyValuePair(pairs, key + '[' + subkey + ']', val[subkey]);
+      }
+    } else {
+      pairs.push(encodeURIComponent(key)
+        + '=' + encodeURIComponent(val));
+    }
+  } else if (val === null) {
+    pairs.push(encodeURIComponent(key));
   }
-  pairs.push(encodeURIComponent(key)
-    + '=' + encodeURIComponent(val));
 }
 
 /**
@@ -2427,13 +2394,18 @@ function pushEncodedKeyValuePair(pairs, key, val) {
 function parseString(str) {
   var obj = {};
   var pairs = str.split('&');
-  var parts;
   var pair;
+  var pos;
 
   for (var i = 0, len = pairs.length; i < len; ++i) {
     pair = pairs[i];
-    parts = pair.split('=');
-    obj[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+    pos = pair.indexOf('=');
+    if (pos == -1) {
+      obj[decodeURIComponent(pair)] = '';
+    } else {
+      obj[decodeURIComponent(pair.slice(0, pos))] =
+        decodeURIComponent(pair.slice(pos + 1));
+    }
   }
 
   return obj;
@@ -2532,37 +2504,6 @@ function isJSON(mime) {
 }
 
 /**
- * Return the mime type for the given `str`.
- *
- * @param {String} str
- * @return {String}
- * @api private
- */
-
-function type(str){
-  return str.split(/ *; */).shift();
-};
-
-/**
- * Return header field parameters.
- *
- * @param {String} str
- * @return {Object}
- * @api private
- */
-
-function params(str){
-  return reduce(str.split(/ *; */), function(obj, str){
-    var parts = str.split(/ *= */)
-      , key = parts.shift()
-      , val = parts.shift();
-
-    if (key && val) obj[key] = val;
-    return obj;
-  }, {});
-};
-
-/**
  * Initialize a new `Response` with the given `xhr`.
  *
  *  - set flags (.ok, .error, etc)
@@ -2608,8 +2549,7 @@ function params(str){
  * @api private
  */
 
-function Response(req, options) {
-  options = options || {};
+function Response(req) {
   this.req = req;
   this.xhr = this.req.xhr;
   // responseText is accessible only if responseType is '' or 'text' and on older browsers
@@ -2617,51 +2557,29 @@ function Response(req, options) {
      ? this.xhr.responseText
      : null;
   this.statusText = this.req.xhr.statusText;
-  this.setStatusProperties(this.xhr.status);
+  var status = this.xhr.status;
+  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+  if (status === 1223) {
+      status = 204;
+  }
+  this._setStatusProperties(status);
   this.header = this.headers = parseHeader(this.xhr.getAllResponseHeaders());
   // getAllResponseHeaders sometimes falsely returns "" for CORS requests, but
   // getResponseHeader still works. so we get content-type even if getting
   // other headers fails.
   this.header['content-type'] = this.xhr.getResponseHeader('content-type');
-  this.setHeaderProperties(this.header);
-  this.body = this.req.method != 'HEAD'
-    ? this.parseBody(this.text ? this.text : this.xhr.response)
-    : null;
+  this._setHeaderProperties(this.header);
+
+  if (null === this.text && req._responseType) {
+    this.body = this.xhr.response;
+  } else {
+    this.body = this.req.method != 'HEAD'
+      ? this._parseBody(this.text ? this.text : this.xhr.response)
+      : null;
+  }
 }
 
-/**
- * Get case-insensitive `field` value.
- *
- * @param {String} field
- * @return {String}
- * @api public
- */
-
-Response.prototype.get = function(field){
-  return this.header[field.toLowerCase()];
-};
-
-/**
- * Set header related properties:
- *
- *   - `.type` the content type without params
- *
- * A response of "Content-Type: text/plain; charset=utf-8"
- * will provide you with a `.type` of "text/plain".
- *
- * @param {Object} header
- * @api private
- */
-
-Response.prototype.setHeaderProperties = function(header){
-  // content-type
-  var ct = this.header['content-type'] || '';
-  this.type = type(ct);
-
-  // params
-  var obj = params(ct);
-  for (var key in obj) this[key] = obj[key];
-};
+ResponseBase(Response.prototype);
 
 /**
  * Parse the given body `str`.
@@ -2674,63 +2592,17 @@ Response.prototype.setHeaderProperties = function(header){
  * @api private
  */
 
-Response.prototype.parseBody = function(str){
+Response.prototype._parseBody = function(str){
   var parse = request.parse[this.type];
+  if(this.req._parser) {
+    return this.req._parser(this, str);
+  }
+  if (!parse && isJSON(this.type)) {
+    parse = request.parse['application/json'];
+  }
   return parse && str && (str.length || str instanceof Object)
     ? parse(str)
     : null;
-};
-
-/**
- * Set flags such as `.ok` based on `status`.
- *
- * For example a 2xx response will give you a `.ok` of __true__
- * whereas 5xx will be __false__ and `.error` will be __true__. The
- * `.clientError` and `.serverError` are also available to be more
- * specific, and `.statusType` is the class of error ranging from 1..5
- * sometimes useful for mapping respond colors etc.
- *
- * "sugar" properties are also defined for common cases. Currently providing:
- *
- *   - .noContent
- *   - .badRequest
- *   - .unauthorized
- *   - .notAcceptable
- *   - .notFound
- *
- * @param {Number} status
- * @api private
- */
-
-Response.prototype.setStatusProperties = function(status){
-  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-  if (status === 1223) {
-    status = 204;
-  }
-
-  var type = status / 100 | 0;
-
-  // status / class
-  this.status = this.statusCode = status;
-  this.statusType = type;
-
-  // basics
-  this.info = 1 == type;
-  this.ok = 2 == type;
-  this.clientError = 4 == type;
-  this.serverError = 5 == type;
-  this.error = (4 == type || 5 == type)
-    ? this.toError()
-    : false;
-
-  // sugar
-  this.accepted = 202 == status;
-  this.noContent = 204 == status;
-  this.badRequest = 400 == status;
-  this.unauthorized = 401 == status;
-  this.notAcceptable = 406 == status;
-  this.notFound = 404 == status;
-  this.forbidden = 403 == status;
 };
 
 /**
@@ -2770,12 +2642,11 @@ request.Response = Response;
 
 function Request(method, url) {
   var self = this;
-  Emitter.call(this);
   this._query = this._query || [];
   this.method = method;
   this.url = url;
-  this.header = {};
-  this._header = {};
+  this.header = {}; // preserves header name case
+  this._header = {}; // coerces header names to lowercase
   this.on('end', function(){
     var err = null;
     var res = null;
@@ -2787,149 +2658,49 @@ function Request(method, url) {
       err.parse = true;
       err.original = e;
       // issue #675: return the raw response if the response parsing fails
-      err.rawResponse = self.xhr && self.xhr.responseText ? self.xhr.responseText : null;
+      if (self.xhr) {
+        // ie9 doesn't have 'response' property
+        err.rawResponse = typeof self.xhr.responseType == 'undefined' ? self.xhr.responseText : self.xhr.response;
+        // issue #876: return the http status code if the response parsing fails
+        err.status = self.xhr.status ? self.xhr.status : null;
+        err.statusCode = err.status; // backwards-compat only
+      } else {
+        err.rawResponse = null;
+        err.status = null;
+      }
+
       return self.callback(err);
     }
 
     self.emit('response', res);
 
-    if (err) {
-      return self.callback(err, res);
+    var new_err;
+    try {
+      if (!self._isResponseOK(res)) {
+        new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
+        new_err.original = err;
+        new_err.response = res;
+        new_err.status = res.status;
+      }
+    } catch(e) {
+      new_err = e; // #985 touching res may cause INVALID_STATE_ERR on old Android
     }
 
-    if (res.status >= 200 && res.status < 300) {
-      return self.callback(err, res);
+    // #1000 don't catch errors from the callback to avoid double calling it
+    if (new_err) {
+      self.callback(new_err, res);
+    } else {
+      self.callback(null, res);
     }
-
-    var new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
-    new_err.original = err;
-    new_err.response = res;
-    new_err.status = res.status;
-
-    self.callback(new_err, res);
   });
 }
 
 /**
- * Mixin `Emitter`.
+ * Mixin `Emitter` and `RequestBase`.
  */
 
 Emitter(Request.prototype);
-
-/**
- * Allow for extension
- */
-
-Request.prototype.use = function(fn) {
-  fn(this);
-  return this;
-}
-
-/**
- * Set timeout to `ms`.
- *
- * @param {Number} ms
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.timeout = function(ms){
-  this._timeout = ms;
-  return this;
-};
-
-/**
- * Clear previous timeout.
- *
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.clearTimeout = function(){
-  this._timeout = 0;
-  clearTimeout(this._timer);
-  return this;
-};
-
-/**
- * Abort the request, and clear potential timeout.
- *
- * @return {Request}
- * @api public
- */
-
-Request.prototype.abort = function(){
-  if (this.aborted) return;
-  this.aborted = true;
-  this.xhr.abort();
-  this.clearTimeout();
-  this.emit('abort');
-  return this;
-};
-
-/**
- * Set header `field` to `val`, or multiple fields with one object.
- *
- * Examples:
- *
- *      req.get('/')
- *        .set('Accept', 'application/json')
- *        .set('X-API-Key', 'foobar')
- *        .end(callback);
- *
- *      req.get('/')
- *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
- *        .end(callback);
- *
- * @param {String|Object} field
- * @param {String} val
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.set = function(field, val){
-  if (isObject(field)) {
-    for (var key in field) {
-      this.set(key, field[key]);
-    }
-    return this;
-  }
-  this._header[field.toLowerCase()] = val;
-  this.header[field] = val;
-  return this;
-};
-
-/**
- * Remove header `field`.
- *
- * Example:
- *
- *      req.get('/')
- *        .unset('User-Agent')
- *        .end(callback);
- *
- * @param {String} field
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.unset = function(field){
-  delete this._header[field.toLowerCase()];
-  delete this.header[field];
-  return this;
-};
-
-/**
- * Get case-insensitive header `field` value.
- *
- * @param {String} field
- * @return {String}
- * @api private
- */
-
-Request.prototype.getHeader = function(field){
-  return this._header[field.toLowerCase()];
-};
+RequestBase(Request.prototype);
 
 /**
  * Set Content-Type to `type`, mapping values from `request.types`.
@@ -2955,20 +2726,6 @@ Request.prototype.getHeader = function(field){
 
 Request.prototype.type = function(type){
   this.set('Content-Type', request.types[type] || type);
-  return this;
-};
-
-/**
- * Force given parser
- *
- * Sets the body parser no matter type.
- *
- * @param {Function}
- * @api public
- */
-
-Request.prototype.parse = function(fn){
-  this._parser = fn;
   return this;
 };
 
@@ -3001,30 +2758,52 @@ Request.prototype.accept = function(type){
  * Set Authorization field value with `user` and `pass`.
  *
  * @param {String} user
- * @param {String} pass
+ * @param {String} [pass] optional in case of using 'bearer' as type
+ * @param {Object} options with 'type' property 'auto', 'basic' or 'bearer' (default 'basic')
  * @return {Request} for chaining
  * @api public
  */
 
-Request.prototype.auth = function(user, pass){
-  var str = btoa(user + ':' + pass);
-  this.set('Authorization', 'Basic ' + str);
+Request.prototype.auth = function(user, pass, options){
+  if (typeof pass === 'object' && pass !== null) { // pass is optional and can substitute for options
+    options = pass;
+  }
+  if (!options) {
+    options = {
+      type: 'function' === typeof btoa ? 'basic' : 'auto',
+    }
+  }
+
+  switch (options.type) {
+    case 'basic':
+      this.set('Authorization', 'Basic ' + btoa(user + ':' + pass));
+    break;
+
+    case 'auto':
+      this.username = user;
+      this.password = pass;
+    break;
+      
+    case 'bearer': // usage would be .auth(accessToken, { type: 'bearer' })
+      this.set('Authorization', 'Bearer ' + user);
+    break;  
+  }
   return this;
 };
 
 /**
-* Add query-string `val`.
-*
-* Examples:
-*
-*   request.get('/shoes')
-*     .query('size=10')
-*     .query({ color: 'blue' })
-*
-* @param {Object|String} val
-* @return {Request} for chaining
-* @api public
-*/
+ * Add query-string `val`.
+ *
+ * Examples:
+ *
+ *   request.get('/shoes')
+ *     .query('size=10')
+ *     .query({ color: 'blue' })
+ *
+ * @param {Object|String} val
+ * @return {Request} for chaining
+ * @api public
+ */
 
 Request.prototype.query = function(val){
   if ('string' != typeof val) val = serialize(val);
@@ -3033,49 +2812,849 @@ Request.prototype.query = function(val){
 };
 
 /**
- * Write the field `name` and `val` for "multipart/form-data"
- * request bodies.
- *
- * ``` js
- * request.post('/upload')
- *   .field('foo', 'bar')
- *   .end(callback);
- * ```
- *
- * @param {String} name
- * @param {String|Blob|File} val
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.field = function(name, val){
-  if (!this._formData) this._formData = new root.FormData();
-  this._formData.append(name, val);
-  return this;
-};
-
-/**
  * Queue the given `file` as an attachment to the specified `field`,
- * with optional `filename`.
+ * with optional `options` (or filename).
  *
  * ``` js
  * request.post('/upload')
- *   .attach(new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
+ *   .attach('content', new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
  *   .end(callback);
  * ```
  *
  * @param {String} field
  * @param {Blob|File} file
- * @param {String} filename
+ * @param {String|Object} options
  * @return {Request} for chaining
  * @api public
  */
 
-Request.prototype.attach = function(field, file, filename){
-  if (!this._formData) this._formData = new root.FormData();
-  this._formData.append(field, file, filename || file.name);
+Request.prototype.attach = function(field, file, options){
+  if (file) {
+    if (this._data) {
+      throw Error("superagent can't mix .send() and .attach()");
+    }
+
+    this._getFormData().append(field, file, options || file.name);
+  }
   return this;
 };
+
+Request.prototype._getFormData = function(){
+  if (!this._formData) {
+    this._formData = new root.FormData();
+  }
+  return this._formData;
+};
+
+/**
+ * Invoke the callback with `err` and `res`
+ * and handle arity check.
+ *
+ * @param {Error} err
+ * @param {Response} res
+ * @api private
+ */
+
+Request.prototype.callback = function(err, res){
+  // console.log(this._retries, this._maxRetries)
+  if (this._maxRetries && this._retries++ < this._maxRetries && shouldRetry(err, res)) {
+    return this._retry();
+  }
+
+  var fn = this._callback;
+  this.clearTimeout();
+
+  if (err) {
+    if (this._maxRetries) err.retries = this._retries - 1;
+    this.emit('error', err);
+  }
+
+  fn(err, res);
+};
+
+/**
+ * Invoke callback with x-domain error.
+ *
+ * @api private
+ */
+
+Request.prototype.crossDomainError = function(){
+  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
+  err.crossDomain = true;
+
+  err.status = this.status;
+  err.method = this.method;
+  err.url = this.url;
+
+  this.callback(err);
+};
+
+// This only warns, because the request is still likely to work
+Request.prototype.buffer = Request.prototype.ca = Request.prototype.agent = function(){
+  console.warn("This is not supported in browser version of superagent");
+  return this;
+};
+
+// This throws, because it can't send/receive data as expected
+Request.prototype.pipe = Request.prototype.write = function(){
+  throw Error("Streaming is not supported in browser version of superagent");
+};
+
+/**
+ * Compose querystring to append to req.url
+ *
+ * @api private
+ */
+
+Request.prototype._appendQueryString = function(){
+  var query = this._query.join('&');
+  if (query) {
+    this.url += (this.url.indexOf('?') >= 0 ? '&' : '?') + query;
+  }
+
+  if (this._sort) {
+    var index = this.url.indexOf('?');
+    if (index >= 0) {
+      var queryArr = this.url.substring(index + 1).split('&');
+      if (isFunction(this._sort)) {
+        queryArr.sort(this._sort);
+      } else {
+        queryArr.sort();
+      }
+      this.url = this.url.substring(0, index) + '?' + queryArr.join('&');
+    }
+  }
+};
+
+/**
+ * Check if `obj` is a host object,
+ * we don't want to serialize these :)
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+Request.prototype._isHost = function _isHost(obj) {
+  // Native objects stringify to [object File], [object Blob], [object FormData], etc.
+  return obj && 'object' === typeof obj && !Array.isArray(obj) && Object.prototype.toString.call(obj) !== '[object Object]';
+}
+
+/**
+ * Initiate request, invoking callback `fn(res)`
+ * with an instanceof `Response`.
+ *
+ * @param {Function} fn
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.end = function(fn){
+  if (this._endCalled) {
+    console.warn("Warning: .end() was called twice. This is not supported in superagent");
+  }
+  this._endCalled = true;
+
+  // store callback
+  this._callback = fn || noop;
+
+  // querystring
+  this._appendQueryString();
+
+  return this._end();
+};
+
+Request.prototype._end = function() {
+  var self = this;
+  var xhr = this.xhr = request.getXHR();
+  var data = this._formData || this._data;
+
+  this._setTimeouts();
+
+  // state change
+  xhr.onreadystatechange = function(){
+    var readyState = xhr.readyState;
+    if (readyState >= 2 && self._responseTimeoutTimer) {
+      clearTimeout(self._responseTimeoutTimer);
+    }
+    if (4 != readyState) {
+      return;
+    }
+
+    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
+    // result in the error "Could not complete the operation due to error c00c023f"
+    var status;
+    try { status = xhr.status } catch(e) { status = 0; }
+
+    if (!status) {
+      if (self.timedout || self._aborted) return;
+      return self.crossDomainError();
+    }
+    self.emit('end');
+  };
+
+  // progress
+  var handleProgress = function(direction, e) {
+    if (e.total > 0) {
+      e.percent = e.loaded / e.total * 100;
+    }
+    e.direction = direction;
+    self.emit('progress', e);
+  }
+  if (this.hasListeners('progress')) {
+    try {
+      xhr.onprogress = handleProgress.bind(null, 'download');
+      if (xhr.upload) {
+        xhr.upload.onprogress = handleProgress.bind(null, 'upload');
+      }
+    } catch(e) {
+      // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
+      // Reported here:
+      // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
+    }
+  }
+
+  // initiate request
+  try {
+    if (this.username && this.password) {
+      xhr.open(this.method, this.url, true, this.username, this.password);
+    } else {
+      xhr.open(this.method, this.url, true);
+    }
+  } catch (err) {
+    // see #1149
+    return this.callback(err);
+  }
+
+  // CORS
+  if (this._withCredentials) xhr.withCredentials = true;
+
+  // body
+  if (!this._formData && 'GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !this._isHost(data)) {
+    // serialize stuff
+    var contentType = this._header['content-type'];
+    var serialize = this._serializer || request.serialize[contentType ? contentType.split(';')[0] : ''];
+    if (!serialize && isJSON(contentType)) {
+      serialize = request.serialize['application/json'];
+    }
+    if (serialize) data = serialize(data);
+  }
+
+  // set header fields
+  for (var field in this.header) {
+    if (null == this.header[field]) continue;
+
+    if (this.header.hasOwnProperty(field))
+      xhr.setRequestHeader(field, this.header[field]);
+  }
+
+  if (this._responseType) {
+    xhr.responseType = this._responseType;
+  }
+
+  // send stuff
+  this.emit('request', this);
+
+  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
+  // We need null here if data is undefined
+  xhr.send(typeof data !== 'undefined' ? data : null);
+  return this;
+};
+
+/**
+ * GET `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.get = function(url, data, fn){
+  var req = request('GET', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.query(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * HEAD `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.head = function(url, data, fn){
+  var req = request('HEAD', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * OPTIONS query to `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.options = function(url, data, fn){
+  var req = request('OPTIONS', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * DELETE `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+function del(url, data, fn){
+  var req = request('DELETE', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+request['del'] = del;
+request['delete'] = del;
+
+/**
+ * PATCH `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.patch = function(url, data, fn){
+  var req = request('PATCH', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * POST `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.post = function(url, data, fn){
+  var req = request('POST', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * PUT `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.put = function(url, data, fn){
+  var req = request('PUT', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+},{"./is-function":10,"./is-object":11,"./request-base":12,"./response-base":13,"./should-retry":14,"component-emitter":4}],10:[function(require,module,exports){
+/**
+ * Check if `fn` is a function.
+ *
+ * @param {Function} fn
+ * @return {Boolean}
+ * @api private
+ */
+var isObject = require('./is-object');
+
+function isFunction(fn) {
+  var tag = isObject(fn) ? Object.prototype.toString.call(fn) : '';
+  return tag === '[object Function]';
+}
+
+module.exports = isFunction;
+
+},{"./is-object":11}],11:[function(require,module,exports){
+/**
+ * Check if `obj` is an object.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(obj) {
+  return null !== obj && 'object' === typeof obj;
+}
+
+module.exports = isObject;
+
+},{}],12:[function(require,module,exports){
+/**
+ * Module of mixed-in functions shared between node and client code
+ */
+var isObject = require('./is-object');
+
+/**
+ * Expose `RequestBase`.
+ */
+
+module.exports = RequestBase;
+
+/**
+ * Initialize a new `RequestBase`.
+ *
+ * @api public
+ */
+
+function RequestBase(obj) {
+  if (obj) return mixin(obj);
+}
+
+/**
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
+
+function mixin(obj) {
+  for (var key in RequestBase.prototype) {
+    obj[key] = RequestBase.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Clear previous timeout.
+ *
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.clearTimeout = function _clearTimeout(){
+  clearTimeout(this._timer);
+  clearTimeout(this._responseTimeoutTimer);
+  delete this._timer;
+  delete this._responseTimeoutTimer;
+  return this;
+};
+
+/**
+ * Override default response body parser
+ *
+ * This function will be called to convert incoming data into request.body
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.parse = function parse(fn){
+  this._parser = fn;
+  return this;
+};
+
+/**
+ * Set format of binary response body.
+ * In browser valid formats are 'blob' and 'arraybuffer',
+ * which return Blob and ArrayBuffer, respectively.
+ *
+ * In Node all values result in Buffer.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .responseType('blob')
+ *        .end(callback);
+ *
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.responseType = function(val){
+  this._responseType = val;
+  return this;
+};
+
+/**
+ * Override default request body serializer
+ *
+ * This function will be called to convert data set via .send or .attach into payload to send
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.serialize = function serialize(fn){
+  this._serializer = fn;
+  return this;
+};
+
+/**
+ * Set timeouts.
+ *
+ * - response timeout is time between sending request and receiving the first byte of the response. Includes DNS and connection time.
+ * - deadline is the time from start of the request to receiving response body in full. If the deadline is too short large files may not load at all on slow connections.
+ *
+ * Value of 0 or false means no timeout.
+ *
+ * @param {Number|Object} ms or {response, read, deadline}
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.timeout = function timeout(options){
+  if (!options || 'object' !== typeof options) {
+    this._timeout = options;
+    this._responseTimeout = 0;
+    return this;
+  }
+
+  for(var option in options) {
+    switch(option) {
+      case 'deadline':
+        this._timeout = options.deadline;
+        break;
+      case 'response':
+        this._responseTimeout = options.response;
+        break;
+      default:
+        console.warn("Unknown timeout option", option);
+    }
+  }
+  return this;
+};
+
+/**
+ * Set number of retry attempts on error.
+ *
+ * Failed requests will be retried 'count' times if timeout or err.code >= 500.
+ *
+ * @param {Number} count
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.retry = function retry(count){
+  // Default to 1 if no count passed or true
+  if (arguments.length === 0 || count === true) count = 1;
+  if (count <= 0) count = 0;
+  this._maxRetries = count;
+  this._retries = 0;
+  return this;
+};
+
+/**
+ * Retry request
+ *
+ * @return {Request} for chaining
+ * @api private
+ */
+
+RequestBase.prototype._retry = function() {
+  this.clearTimeout();
+
+  // node
+  if (this.req) {
+    this.req = null;
+    this.req = this.request();
+  }
+
+  this._aborted = false;
+  this.timedout = false;
+
+  return this._end();
+};
+
+/**
+ * Promise support
+ *
+ * @param {Function} resolve
+ * @param {Function} [reject]
+ * @return {Request}
+ */
+
+RequestBase.prototype.then = function then(resolve, reject) {
+  if (!this._fullfilledPromise) {
+    var self = this;
+    if (this._endCalled) {
+      console.warn("Warning: superagent request was sent twice, because both .end() and .then() were called. Never call .end() if you use promises");
+    }
+    this._fullfilledPromise = new Promise(function(innerResolve, innerReject){
+      self.end(function(err, res){
+        if (err) innerReject(err); else innerResolve(res);
+      });
+    });
+  }
+  return this._fullfilledPromise.then(resolve, reject);
+}
+
+RequestBase.prototype.catch = function(cb) {
+  return this.then(undefined, cb);
+};
+
+/**
+ * Allow for extension
+ */
+
+RequestBase.prototype.use = function use(fn) {
+  fn(this);
+  return this;
+}
+
+RequestBase.prototype.ok = function(cb) {
+  if ('function' !== typeof cb) throw Error("Callback required");
+  this._okCallback = cb;
+  return this;
+};
+
+RequestBase.prototype._isResponseOK = function(res) {
+  if (!res) {
+    return false;
+  }
+
+  if (this._okCallback) {
+    return this._okCallback(res);
+  }
+
+  return res.status >= 200 && res.status < 300;
+};
+
+
+/**
+ * Get request header `field`.
+ * Case-insensitive.
+ *
+ * @param {String} field
+ * @return {String}
+ * @api public
+ */
+
+RequestBase.prototype.get = function(field){
+  return this._header[field.toLowerCase()];
+};
+
+/**
+ * Get case-insensitive header `field` value.
+ * This is a deprecated internal API. Use `.get(field)` instead.
+ *
+ * (getHeader is no longer used internally by the superagent code base)
+ *
+ * @param {String} field
+ * @return {String}
+ * @api private
+ * @deprecated
+ */
+
+RequestBase.prototype.getHeader = RequestBase.prototype.get;
+
+/**
+ * Set header `field` to `val`, or multiple fields with one object.
+ * Case-insensitive.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .set('Accept', 'application/json')
+ *        .set('X-API-Key', 'foobar')
+ *        .end(callback);
+ *
+ *      req.get('/')
+ *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
+ *        .end(callback);
+ *
+ * @param {String|Object} field
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.set = function(field, val){
+  if (isObject(field)) {
+    for (var key in field) {
+      this.set(key, field[key]);
+    }
+    return this;
+  }
+  this._header[field.toLowerCase()] = val;
+  this.header[field] = val;
+  return this;
+};
+
+/**
+ * Remove header `field`.
+ * Case-insensitive.
+ *
+ * Example:
+ *
+ *      req.get('/')
+ *        .unset('User-Agent')
+ *        .end(callback);
+ *
+ * @param {String} field
+ */
+RequestBase.prototype.unset = function(field){
+  delete this._header[field.toLowerCase()];
+  delete this.header[field];
+  return this;
+};
+
+/**
+ * Write the field `name` and `val`, or multiple fields with one object
+ * for "multipart/form-data" request bodies.
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .field('foo', 'bar')
+ *   .end(callback);
+ *
+ * request.post('/upload')
+ *   .field({ foo: 'bar', baz: 'qux' })
+ *   .end(callback);
+ * ```
+ *
+ * @param {String|Object} name
+ * @param {String|Blob|File|Buffer|fs.ReadStream} val
+ * @return {Request} for chaining
+ * @api public
+ */
+RequestBase.prototype.field = function(name, val) {
+
+  // name should be either a string or an object.
+  if (null === name ||  undefined === name) {
+    throw new Error('.field(name, val) name can not be empty');
+  }
+
+  if (this._data) {
+    console.error(".field() can't be used if .send() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObject(name)) {
+    for (var key in name) {
+      this.field(key, name[key]);
+    }
+    return this;
+  }
+
+  if (Array.isArray(val)) {
+    for (var i in val) {
+      this.field(name, val[i]);
+    }
+    return this;
+  }
+
+  // val should be defined now
+  if (null === val || undefined === val) {
+    throw new Error('.field(name, val) val can not be empty');
+  }
+  if ('boolean' === typeof val) {
+    val = '' + val;
+  }
+  this._getFormData().append(name, val);
+  return this;
+};
+
+/**
+ * Abort the request, and clear potential timeout.
+ *
+ * @return {Request}
+ * @api public
+ */
+RequestBase.prototype.abort = function(){
+  if (this._aborted) {
+    return this;
+  }
+  this._aborted = true;
+  this.xhr && this.xhr.abort(); // browser
+  this.req && this.req.abort(); // node
+  this.clearTimeout();
+  this.emit('abort');
+  return this;
+};
+
+/**
+ * Enable transmission of cookies with x-domain requests.
+ *
+ * Note that for this to work the origin must not be
+ * using "Access-Control-Allow-Origin" with a wildcard,
+ * and also must set "Access-Control-Allow-Credentials"
+ * to "true".
+ *
+ * @api public
+ */
+
+RequestBase.prototype.withCredentials = function(on){
+  // This is browser-only functionality. Node side is no-op.
+  if(on==undefined) on = true;
+  this._withCredentials = on;
+  return this;
+};
+
+/**
+ * Set the max redirects to `n`. Does noting in browser XHR implementation.
+ *
+ * @param {Number} n
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.redirects = function(n){
+  this._maxRedirects = n;
+  return this;
+};
+
+/**
+ * Convert to a plain javascript object (not JSON string) of scalar properties.
+ * Note as this method is designed to return a useful non-this value,
+ * it cannot be chained.
+ *
+ * @return {Object} describing method, url, and data of this request
+ * @api public
+ */
+
+RequestBase.prototype.toJSON = function(){
+  return {
+    method: this.method,
+    url: this.url,
+    data: this._data,
+    headers: this._header
+  };
+};
+
 
 /**
  * Send `data` as the request body, defaulting the `.type()` to "json" when
@@ -3107,28 +3686,43 @@ Request.prototype.attach = function(field, file, filename){
  *         .end(callback)
  *
  *       // defaults to x-www-form-urlencoded
-  *      request.post('/user')
-  *        .send('name=tobi')
-  *        .send('species=ferret')
-  *        .end(callback)
+ *      request.post('/user')
+ *        .send('name=tobi')
+ *        .send('species=ferret')
+ *        .end(callback)
  *
  * @param {String|Object} data
  * @return {Request} for chaining
  * @api public
  */
 
-Request.prototype.send = function(data){
-  var obj = isObject(data);
-  var type = this.getHeader('Content-Type');
+RequestBase.prototype.send = function(data){
+  var isObj = isObject(data);
+  var type = this._header['content-type'];
+
+  if (this._formData) {
+    console.error(".send() can't be used if .attach() or .field() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObj && !this._data) {
+    if (Array.isArray(data)) {
+      this._data = [];
+    } else if (!this._isHost(data)) {
+      this._data = {};
+    }
+  } else if (data && this._data && this._isHost(this._data)) {
+    throw Error("Can't merge these send calls");
+  }
 
   // merge
-  if (obj && isObject(this._data)) {
+  if (isObj && isObject(this._data)) {
     for (var key in data) {
       this._data[key] = data[key];
     }
   } else if ('string' == typeof data) {
+    // default to x-www-form-urlencoded
     if (!type) this.type('form');
-    type = this.getHeader('Content-Type');
+    type = this._header['content-type'];
     if ('application/x-www-form-urlencoded' == type) {
       this._data = this._data
         ? this._data + '&' + data
@@ -3140,41 +3734,48 @@ Request.prototype.send = function(data){
     this._data = data;
   }
 
-  if (!obj || isHost(data)) return this;
+  if (!isObj || this._isHost(data)) {
+    return this;
+  }
+
+  // default to json
   if (!type) this.type('json');
   return this;
 };
 
-/**
- * Invoke the callback with `err` and `res`
- * and handle arity check.
- *
- * @param {Error} err
- * @param {Response} res
- * @api private
- */
-
-Request.prototype.callback = function(err, res){
-  var fn = this._callback;
-  this.clearTimeout();
-  fn(err, res);
-};
 
 /**
- * Invoke callback with x-domain error.
+ * Sort `querystring` by the sort function
  *
- * @api private
+ *
+ * Examples:
+ *
+ *       // default order
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery()
+ *         .end(callback)
+ *
+ *       // customized sort function
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery(function(a, b){
+ *           return a.length - b.length;
+ *         })
+ *         .end(callback)
+ *
+ *
+ * @param {Function} sort
+ * @return {Request} for chaining
+ * @api public
  */
 
-Request.prototype.crossDomainError = function(){
-  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
-  err.crossDomain = true;
-
-  err.status = this.status;
-  err.method = this.method;
-  err.url = this.url;
-
-  this.callback(err);
+RequestBase.prototype.sortQuery = function(sort) {
+  // _sort default to true but otherwise can be a function or boolean
+  this._sort = typeof sort === 'undefined' ? true : sort;
+  return this;
 };
 
 /**
@@ -3183,306 +3784,279 @@ Request.prototype.crossDomainError = function(){
  * @api private
  */
 
-Request.prototype.timeoutError = function(){
-  var timeout = this._timeout;
-  var err = new Error('timeout of ' + timeout + 'ms exceeded');
+RequestBase.prototype._timeoutError = function(reason, timeout, errno){
+  if (this._aborted) {
+    return;
+  }
+  var err = new Error(reason + timeout + 'ms exceeded');
   err.timeout = timeout;
+  err.code = 'ECONNABORTED';
+  err.errno = errno;
+  this.timedout = true;
+  this.abort();
   this.callback(err);
 };
 
-/**
- * Enable transmission of cookies with x-domain requests.
- *
- * Note that for this to work the origin must not be
- * using "Access-Control-Allow-Origin" with a wildcard,
- * and also must set "Access-Control-Allow-Credentials"
- * to "true".
- *
- * @api public
- */
-
-Request.prototype.withCredentials = function(){
-  this._withCredentials = true;
-  return this;
-};
-
-/**
- * Initiate request, invoking callback `fn(res)`
- * with an instanceof `Response`.
- *
- * @param {Function} fn
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.end = function(fn){
+RequestBase.prototype._setTimeouts = function() {
   var self = this;
-  var xhr = this.xhr = request.getXHR();
-  var query = this._query.join('&');
-  var timeout = this._timeout;
-  var data = this._formData || this._data;
 
-  // store callback
-  this._callback = fn || noop;
-
-  // state change
-  xhr.onreadystatechange = function(){
-    if (4 != xhr.readyState) return;
-
-    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
-    // result in the error "Could not complete the operation due to error c00c023f"
-    var status;
-    try { status = xhr.status } catch(e) { status = 0; }
-
-    if (0 == status) {
-      if (self.timedout) return self.timeoutError();
-      if (self.aborted) return;
-      return self.crossDomainError();
-    }
-    self.emit('end');
-  };
-
-  // progress
-  var handleProgress = function(e){
-    if (e.total > 0) {
-      e.percent = e.loaded / e.total * 100;
-    }
-    e.direction = 'download';
-    self.emit('progress', e);
-  };
-  if (this.hasListeners('progress')) {
-    xhr.onprogress = handleProgress;
-  }
-  try {
-    if (xhr.upload && this.hasListeners('progress')) {
-      xhr.upload.onprogress = handleProgress;
-    }
-  } catch(e) {
-    // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
-    // Reported here:
-    // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
-  }
-
-  // timeout
-  if (timeout && !this._timer) {
+  // deadline
+  if (this._timeout && !this._timer) {
     this._timer = setTimeout(function(){
-      self.timedout = true;
-      self.abort();
-    }, timeout);
+      self._timeoutError('Timeout of ', self._timeout, 'ETIME');
+    }, this._timeout);
   }
-
-  // querystring
-  if (query) {
-    query = request.serializeObject(query);
-    this.url += ~this.url.indexOf('?')
-      ? '&' + query
-      : '?' + query;
+  // response timeout
+  if (this._responseTimeout && !this._responseTimeoutTimer) {
+    this._responseTimeoutTimer = setTimeout(function(){
+      self._timeoutError('Response timeout of ', self._responseTimeout, 'ETIMEDOUT');
+    }, this._responseTimeout);
   }
+}
 
-  // initiate request
-  xhr.open(this.method, this.url, true);
-
-  // CORS
-  if (this._withCredentials) xhr.withCredentials = true;
-
-  // body
-  if ('GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !isHost(data)) {
-    // serialize stuff
-    var contentType = this.getHeader('Content-Type');
-    var serialize = this._parser || request.serialize[contentType ? contentType.split(';')[0] : ''];
-    if (!serialize && isJSON(contentType)) serialize = request.serialize['application/json'];
-    if (serialize) data = serialize(data);
-  }
-
-  // set header fields
-  for (var field in this.header) {
-    if (null == this.header[field]) continue;
-    xhr.setRequestHeader(field, this.header[field]);
-  }
-
-  // send stuff
-  this.emit('request', this);
-
-  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
-  // We need null here if data is undefined
-  xhr.send(typeof data !== 'undefined' ? data : null);
-  return this;
-};
+},{"./is-object":11}],13:[function(require,module,exports){
 
 /**
- * Faux promise support
- *
- * @param {Function} fulfill
- * @param {Function} reject
- * @return {Request}
+ * Module dependencies.
  */
 
-Request.prototype.then = function (fulfill, reject) {
-  return this.end(function(err, res) {
-    err ? reject(err) : fulfill(res);
-  });
+var utils = require('./utils');
+
+/**
+ * Expose `ResponseBase`.
+ */
+
+module.exports = ResponseBase;
+
+/**
+ * Initialize a new `ResponseBase`.
+ *
+ * @api public
+ */
+
+function ResponseBase(obj) {
+  if (obj) return mixin(obj);
 }
 
 /**
- * Expose `Request`.
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
  */
 
-request.Request = Request;
-
-/**
- * Issue a request:
- *
- * Examples:
- *
- *    request('GET', '/users').end(callback)
- *    request('/users').end(callback)
- *    request('/users', callback)
- *
- * @param {String} method
- * @param {String|Function} url or callback
- * @return {Request}
- * @api public
- */
-
-function request(method, url) {
-  // callback
-  if ('function' == typeof url) {
-    return new Request('GET', method).end(url);
+function mixin(obj) {
+  for (var key in ResponseBase.prototype) {
+    obj[key] = ResponseBase.prototype[key];
   }
-
-  // url first
-  if (1 == arguments.length) {
-    return new Request('GET', method);
-  }
-
-  return new Request(method, url);
+  return obj;
 }
 
 /**
- * GET `url` with optional callback `fn(res)`.
+ * Get case-insensitive `field` value.
  *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
+ * @param {String} field
+ * @return {String}
  * @api public
  */
 
-request.get = function(url, data, fn){
-  var req = request('GET', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.query(data);
-  if (fn) req.end(fn);
-  return req;
+ResponseBase.prototype.get = function(field){
+    return this.header[field.toLowerCase()];
 };
 
 /**
- * HEAD `url` with optional callback `fn(res)`.
+ * Set header related properties:
  *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.head = function(url, data, fn){
-  var req = request('HEAD', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * DELETE `url` with optional callback `fn(res)`.
+ *   - `.type` the content type without params
  *
- * @param {String} url
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-function del(url, fn){
-  var req = request('DELETE', url);
-  if (fn) req.end(fn);
-  return req;
-};
-
-request['del'] = del;
-request['delete'] = del;
-
-/**
- * PATCH `url` with optional `data` and callback `fn(res)`.
+ * A response of "Content-Type: text/plain; charset=utf-8"
+ * will provide you with a `.type` of "text/plain".
  *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
+ * @param {Object} header
+ * @api private
  */
 
-request.patch = function(url, data, fn){
-  var req = request('PATCH', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
+ResponseBase.prototype._setHeaderProperties = function(header){
+    // TODO: moar!
+    // TODO: make this a util
+
+    // content-type
+    var ct = header['content-type'] || '';
+    this.type = utils.type(ct);
+
+    // params
+    var params = utils.params(ct);
+    for (var key in params) this[key] = params[key];
+
+    this.links = {};
+
+    // links
+    try {
+        if (header.link) {
+            this.links = utils.parseLinks(header.link);
+        }
+    } catch (err) {
+        // ignore
+    }
 };
 
 /**
- * POST `url` with optional `data` and callback `fn(res)`.
+ * Set flags such as `.ok` based on `status`.
  *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.post = function(url, data, fn){
-  var req = request('POST', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * PUT `url` with optional `data` and callback `fn(res)`.
+ * For example a 2xx response will give you a `.ok` of __true__
+ * whereas 5xx will be __false__ and `.error` will be __true__. The
+ * `.clientError` and `.serverError` are also available to be more
+ * specific, and `.statusType` is the class of error ranging from 1..5
+ * sometimes useful for mapping respond colors etc.
  *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
+ * "sugar" properties are also defined for common cases. Currently providing:
+ *
+ *   - .noContent
+ *   - .badRequest
+ *   - .unauthorized
+ *   - .notAcceptable
+ *   - .notFound
+ *
+ * @param {Number} status
+ * @api private
  */
 
-request.put = function(url, data, fn){
-  var req = request('PUT', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
+ResponseBase.prototype._setStatusProperties = function(status){
+    var type = status / 100 | 0;
+
+    // status / class
+    this.status = this.statusCode = status;
+    this.statusType = type;
+
+    // basics
+    this.info = 1 == type;
+    this.ok = 2 == type;
+    this.redirect = 3 == type;
+    this.clientError = 4 == type;
+    this.serverError = 5 == type;
+    this.error = (4 == type || 5 == type)
+        ? this.toError()
+        : false;
+
+    // sugar
+    this.accepted = 202 == status;
+    this.noContent = 204 == status;
+    this.badRequest = 400 == status;
+    this.unauthorized = 401 == status;
+    this.notAcceptable = 406 == status;
+    this.forbidden = 403 == status;
+    this.notFound = 404 == status;
+};
+
+},{"./utils":15}],14:[function(require,module,exports){
+var ERROR_CODES = [
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EADDRINFO',
+  'ESOCKETTIMEDOUT'
+];
+
+/**
+ * Determine if a request should be retried.
+ * (Borrowed from segmentio/superagent-retry)
+ *
+ * @param {Error} err
+ * @param {Response} [res]
+ * @returns {Boolean}
+ */
+module.exports = function shouldRetry(err, res) {
+  if (err && err.code && ~ERROR_CODES.indexOf(err.code)) return true;
+  if (res && res.status && res.status >= 500) return true;
+  // Superagent timeout
+  if (err && 'timeout' in err && err.code == 'ECONNABORTED') return true;
+  if (err && 'crossDomain' in err) return true;
+  return false;
+};
+
+},{}],15:[function(require,module,exports){
+
+/**
+ * Return the mime type for the given `str`.
+ *
+ * @param {String} str
+ * @return {String}
+ * @api private
+ */
+
+exports.type = function(str){
+  return str.split(/ *; */).shift();
 };
 
 /**
- * Expose `request`.
+ * Return header field parameters.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
  */
 
-module.exports = request;
+exports.params = function(str){
+  return str.split(/ *; */).reduce(function(obj, str){
+    var parts = str.split(/ *= */);
+    var key = parts.shift();
+    var val = parts.shift();
 
-},{"emitter":4,"reduce":9}],11:[function(require,module,exports){
+    if (key && val) obj[key] = val;
+    return obj;
+  }, {});
+};
+
+/**
+ * Parse Link header fields.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.parseLinks = function(str){
+  return str.split(/ *, */).reduce(function(obj, str){
+    var parts = str.split(/ *; */);
+    var url = parts[0].slice(1, -1);
+    var rel = parts[1].split(/ *= */)[1].slice(1, -1);
+    obj[rel] = url;
+    return obj;
+  }, {});
+};
+
+/**
+ * Strip content related fields from `header`.
+ *
+ * @param {Object} header
+ * @return {Object} header
+ * @api private
+ */
+
+exports.cleanHeader = function(header, shouldStripCookie){
+  delete header['content-type'];
+  delete header['content-length'];
+  delete header['transfer-encoding'];
+  delete header['host'];
+  if (shouldStripCookie) {
+    delete header['cookie'];
+  }
+  return header;
+};
+},{}],16:[function(require,module,exports){
 (function (Buffer){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -3506,7 +4080,7 @@ module.exports = request;
 
   /**
    * @module ApiClient
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -3645,12 +4219,15 @@ module.exports = request;
    * @returns {Boolean} <code>true</code> if <code>param</code> represents a file.
    */
   exports.prototype.isFileParam = function(param) {
-    // fs.ReadStream in Node.js (but not in runtime like browserify)
-    if (typeof window === 'undefined' &&
-        typeof require === 'function' &&
-        require('fs') &&
-        param instanceof require('fs').ReadStream) {
-      return true;
+    // fs.ReadStream in Node.js and Electron (but not in runtime like browserify)
+    if (typeof require === 'function') {
+      var fs;
+      try {
+        fs = require('fs');
+      } catch (err) {}
+      if (fs && fs.ReadStream && param instanceof fs.ReadStream) {
+        return true;
+      }
     }
     // Buffer in Node.js
     if (typeof Buffer === 'function' && param instanceof Buffer) {
@@ -3900,6 +4477,8 @@ module.exports = request;
 
     if (returnType === 'Blob') {
       request.responseType('blob');
+    } else if (returnType === 'String') {
+      request.responseType('string');
     }
 
     // Attach previously saved cookies, if enabled
@@ -4036,16 +4615,19 @@ module.exports = request;
 }));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":3,"fs":2,"querystring":8,"superagent":10}],12:[function(require,module,exports){
+},{"buffer":3,"fs":2,"querystring":8,"superagent":9}],17:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -4070,7 +4652,7 @@ module.exports = request;
   /**
    * Account service.
    * @module api/AccountApi
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -4127,16 +4709,19 @@ module.exports = request;
   return exports;
 }));
 
-},{"../ApiClient":11,"../model/FlatErrorResponse":18,"../model/UserDetails":45}],13:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/UserDetails":81}],18:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -4144,24 +4729,990 @@ module.exports = request;
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/FlatErrorResponse', 'model/ScoreDetails'], factory);
+    define(['ApiClient', 'model/Assignment', 'model/AssignmentCopy', 'model/AssignmentCreation', 'model/AssignmentSubmission', 'model/AssignmentSubmissionUpdate', 'model/ClassCreation', 'model/ClassDetails', 'model/ClassUpdate', 'model/FlatErrorResponse'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/ScoreDetails'));
+    module.exports = factory(require('../ApiClient'), require('../model/Assignment'), require('../model/AssignmentCopy'), require('../model/AssignmentCreation'), require('../model/AssignmentSubmission'), require('../model/AssignmentSubmissionUpdate'), require('../model/ClassCreation'), require('../model/ClassDetails'), require('../model/ClassUpdate'), require('../model/FlatErrorResponse'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.GroupApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.ScoreDetails);
+    root.FlatApi.ClassApi = factory(root.FlatApi.ApiClient, root.FlatApi.Assignment, root.FlatApi.AssignmentCopy, root.FlatApi.AssignmentCreation, root.FlatApi.AssignmentSubmission, root.FlatApi.AssignmentSubmissionUpdate, root.FlatApi.ClassCreation, root.FlatApi.ClassDetails, root.FlatApi.ClassUpdate, root.FlatApi.FlatErrorResponse);
   }
-}(this, function(ApiClient, FlatErrorResponse, ScoreDetails) {
+}(this, function(ApiClient, Assignment, AssignmentCopy, AssignmentCreation, AssignmentSubmission, AssignmentSubmissionUpdate, ClassCreation, ClassDetails, ClassUpdate, FlatErrorResponse) {
+  'use strict';
+
+  /**
+   * Class service.
+   * @module api/ClassApi
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new ClassApi. 
+   * @alias module:api/ClassApi
+   * @class
+   * @param {module:ApiClient} apiClient Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the addClassUser operation.
+     * @callback module:api/ClassApi~addClassUserCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Add a user to the class
+     * This method can be used by a teacher of the class to enroll another Flat user into the class.  Only users that are part of your Organization can be enrolled in a class of this same Organization.  When enrolling a user in the class, Flat will automatically add this user to the corresponding Class group, based on this role in the Organization. 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} user Unique identifier of the user
+     * @param {module:api/ClassApi~addClassUserCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.addClassUser = function(_class, user, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling addClassUser");
+      }
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling addClassUser");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'user': user
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/users/{user}', 'PUT',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the archiveClass operation.
+     * @callback module:api/ClassApi~archiveClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Archive the class
+     * Mark the class as &#x60;archived&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~archiveClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.archiveClass = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling archiveClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/archive', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the copyAssignment operation.
+     * @callback module:api/ClassApi~copyAssignmentCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Assignment} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Copy an assignment
+     * Copy an assignment to a specified class.  If the original assignment has a due date in the past, this new assingment will be created without a due date.  If the new class is synchronized with an external app (e.g. Google Classroom), the copied assignment will also be posted on the external app. 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} assignment Unique identifier of the assignment
+     * @param {module:model/AssignmentCopy} body 
+     * @param {module:api/ClassApi~copyAssignmentCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Assignment}
+     */
+    this.copyAssignment = function(_class, assignment, body, callback) {
+      var postBody = body;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling copyAssignment");
+      }
+
+      // verify the required parameter 'assignment' is set
+      if (assignment === undefined || assignment === null) {
+        throw new Error("Missing the required parameter 'assignment' when calling copyAssignment");
+      }
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling copyAssignment");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'assignment': assignment
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Assignment;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments/{assignment}/copy', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createAssignment operation.
+     * @callback module:api/ClassApi~createAssignmentCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Assignment} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Assignment creation
+     * Use this method as a teacher to create and post a new assignment to a class.  If the class is synchronized with Google Classroom, the assignment will be automatically posted to your Classroom course. 
+     * @param {String} _class Unique identifier of the class
+     * @param {Object} opts Optional parameters
+     * @param {module:model/AssignmentCreation} opts.body 
+     * @param {module:api/ClassApi~createAssignmentCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Assignment}
+     */
+    this.createAssignment = function(_class, opts, callback) {
+      opts = opts || {};
+      var postBody = opts['body'];
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling createAssignment");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Assignment;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createClass operation.
+     * @callback module:api/ClassApi~createClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new class
+     * Classrooms on Flat allow you to create activities with assignments and post content to a specific group.  When creating a class, Flat automatically creates two groups: one for the teachers of the course, one for the students. The creator of this class is automatically added to the teachers group.  If the classsroom is synchronized with another application like Google Classroom, some of the meta information will automatically be updated.  You can add users to this class using &#x60;POST /classes/{class}/users/{user}&#x60;, they will automatically added to the group based on their role on Flat. Users can also enroll themselves to this class using &#x60;POST /classes/enroll/{enrollmentCode}&#x60; and the &#x60;enrollmentCode&#x60; returned in the &#x60;ClassDetails&#x60; response. 
+     * @param {module:model/ClassCreation} body 
+     * @param {module:api/ClassApi~createClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.createClass = function(body, callback) {
+      var postBody = body;
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling createClass");
+      }
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createSubmission operation.
+     * @callback module:api/ClassApi~createSubmissionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/AssignmentSubmission} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create or edit a submission
+     * Use this method as a student to create, update and submit a submission related to an assignment. Students can only set &#x60;attachments&#x60;, &#x60;studentComment&#x60; and &#x60;submit&#x60;.  Teachers can use &#x60;PUT /classes/{class}/assignments/{assignment}/submissions/{submission}&#x60; to update a submission by id. 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} assignment Unique identifier of the assignment
+     * @param {module:model/AssignmentSubmissionUpdate} body 
+     * @param {module:api/ClassApi~createSubmissionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/AssignmentSubmission}
+     */
+    this.createSubmission = function(_class, assignment, body, callback) {
+      var postBody = body;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling createSubmission");
+      }
+
+      // verify the required parameter 'assignment' is set
+      if (assignment === undefined || assignment === null) {
+        throw new Error("Missing the required parameter 'assignment' when calling createSubmission");
+      }
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling createSubmission");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'assignment': assignment
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = AssignmentSubmission;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments/{assignment}/submissions', 'PUT',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deleteClassUser operation.
+     * @callback module:api/ClassApi~deleteClassUserCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Remove a user from the class
+     * This method can be used by a teacher to remove a user from the class, or by a student to leave the classroom.  Warning: Removing a user from the class will remove the associated resources, including the submissions and feedback related to these submissions. 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} user Unique identifier of the user
+     * @param {module:api/ClassApi~deleteClassUserCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deleteClassUser = function(_class, user, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling deleteClassUser");
+      }
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling deleteClassUser");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'user': user
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/users/{user}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the editSubmission operation.
+     * @callback module:api/ClassApi~editSubmissionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/AssignmentSubmission} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Edit a submission
+     * Use this method as a teacher to update the different submission and give feedback. Teachers can only set &#x60;returnFeedback&#x60; 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} assignment Unique identifier of the assignment
+     * @param {String} submission Unique identifier of the submission
+     * @param {module:model/AssignmentSubmissionUpdate} body 
+     * @param {module:api/ClassApi~editSubmissionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/AssignmentSubmission}
+     */
+    this.editSubmission = function(_class, assignment, submission, body, callback) {
+      var postBody = body;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling editSubmission");
+      }
+
+      // verify the required parameter 'assignment' is set
+      if (assignment === undefined || assignment === null) {
+        throw new Error("Missing the required parameter 'assignment' when calling editSubmission");
+      }
+
+      // verify the required parameter 'submission' is set
+      if (submission === undefined || submission === null) {
+        throw new Error("Missing the required parameter 'submission' when calling editSubmission");
+      }
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling editSubmission");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'assignment': assignment,
+        'submission': submission
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = AssignmentSubmission;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments/{assignment}/submissions/{submission}', 'PUT',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the enrollClass operation.
+     * @callback module:api/ClassApi~enrollClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Join a class
+     * Use this method to join a class using an enrollment code given one of the teacher of this class. This code is also available in the &#x60;ClassDetails&#x60; returned to the teachers when creating the class or listing / fetching a specific class.  Flat will automatically add the user to the corresponding class group based on this role in the organization. 
+     * @param {String} enrollmentCode The enrollment code, available to the teacher in &#x60;ClassDetails&#x60; 
+     * @param {module:api/ClassApi~enrollClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.enrollClass = function(enrollmentCode, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'enrollmentCode' is set
+      if (enrollmentCode === undefined || enrollmentCode === null) {
+        throw new Error("Missing the required parameter 'enrollmentCode' when calling enrollClass");
+      }
+
+
+      var pathParams = {
+        'enrollmentCode': enrollmentCode
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/enroll/{enrollmentCode}', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getClass operation.
+     * @callback module:api/ClassApi~getClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get the details of a single class
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~getClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.getClass = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling getClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getScoreSubmissions operation.
+     * @callback module:api/ClassApi~getScoreSubmissionsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/AssignmentSubmission>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List submissions related to the score
+     * This API call will list the different assignments submissions where the score is attached. This method can be used by anyone that are part of the organization and have at least read access to the document. 
+     * @param {String} score Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;). 
+     * @param {module:api/ClassApi~getScoreSubmissionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/AssignmentSubmission>}
+     */
+    this.getScoreSubmissions = function(score, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'score' is set
+      if (score === undefined || score === null) {
+        throw new Error("Missing the required parameter 'score' when calling getScoreSubmissions");
+      }
+
+
+      var pathParams = {
+        'score': score
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [AssignmentSubmission];
+
+      return this.apiClient.callApi(
+        '/scores/{score}/submissions', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubmission operation.
+     * @callback module:api/ClassApi~getSubmissionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/AssignmentSubmission} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get a student submission
+     * @param {String} _class Unique identifier of the class
+     * @param {String} assignment Unique identifier of the assignment
+     * @param {String} submission Unique identifier of the submission
+     * @param {module:api/ClassApi~getSubmissionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/AssignmentSubmission}
+     */
+    this.getSubmission = function(_class, assignment, submission, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling getSubmission");
+      }
+
+      // verify the required parameter 'assignment' is set
+      if (assignment === undefined || assignment === null) {
+        throw new Error("Missing the required parameter 'assignment' when calling getSubmission");
+      }
+
+      // verify the required parameter 'submission' is set
+      if (submission === undefined || submission === null) {
+        throw new Error("Missing the required parameter 'submission' when calling getSubmission");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'assignment': assignment,
+        'submission': submission
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = AssignmentSubmission;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments/{assignment}/submissions/{submission}', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubmissions operation.
+     * @callback module:api/ClassApi~getSubmissionsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/AssignmentSubmission>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List the students&#39; submissions
+     * @param {String} _class Unique identifier of the class
+     * @param {String} assignment Unique identifier of the assignment
+     * @param {module:api/ClassApi~getSubmissionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/AssignmentSubmission>}
+     */
+    this.getSubmissions = function(_class, assignment, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling getSubmissions");
+      }
+
+      // verify the required parameter 'assignment' is set
+      if (assignment === undefined || assignment === null) {
+        throw new Error("Missing the required parameter 'assignment' when calling getSubmissions");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'assignment': assignment
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [AssignmentSubmission];
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments/{assignment}/submissions', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listAssignments operation.
+     * @callback module:api/ClassApi~listAssignmentsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/Assignment>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Assignments listing
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~listAssignmentsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/Assignment>}
+     */
+    this.listAssignments = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling listAssignments");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [Assignment];
+
+      return this.apiClient.callApi(
+        '/classes/{class}/assignments', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listClassStudentSubmissions operation.
+     * @callback module:api/ClassApi~listClassStudentSubmissionsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/AssignmentSubmission>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List the submissions for a student
+     * Use this method as a teacher to list all the assignment submissions sent by a student of the class 
+     * @param {String} _class Unique identifier of the class
+     * @param {String} user Unique identifier of the user
+     * @param {module:api/ClassApi~listClassStudentSubmissionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/AssignmentSubmission>}
+     */
+    this.listClassStudentSubmissions = function(_class, user, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling listClassStudentSubmissions");
+      }
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling listClassStudentSubmissions");
+      }
+
+
+      var pathParams = {
+        'class': _class,
+        'user': user
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [AssignmentSubmission];
+
+      return this.apiClient.callApi(
+        '/classes/{class}/students/{user}/submissions', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listClasses operation.
+     * @callback module:api/ClassApi~listClassesCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/ClassDetails>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List the classes available for the current user
+     * @param {Object} opts Optional parameters
+     * @param {module:model/String} opts.state Filter the classes by state (default to active)
+     * @param {module:api/ClassApi~listClassesCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/ClassDetails>}
+     */
+    this.listClasses = function(opts, callback) {
+      opts = opts || {};
+      var postBody = null;
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+        'state': opts['state']
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [ClassDetails];
+
+      return this.apiClient.callApi(
+        '/classes', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the unarchiveClass operation.
+     * @callback module:api/ClassApi~unarchiveClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Unarchive the class
+     * Mark the class as &#x60;active&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~unarchiveClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.unarchiveClass = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling unarchiveClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/archive', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the updateClass operation.
+     * @callback module:api/ClassApi~updateClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Update the class
+     * Update the meta information of the class 
+     * @param {String} _class Unique identifier of the class
+     * @param {Object} opts Optional parameters
+     * @param {module:model/ClassUpdate} opts.body Details of the Class
+     * @param {module:api/ClassApi~updateClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.updateClass = function(_class, opts, callback) {
+      opts = opts || {};
+      var postBody = opts['body'];
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling updateClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}', 'PUT',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":16,"../model/Assignment":24,"../model/AssignmentCopy":25,"../model/AssignmentCreation":26,"../model/AssignmentSubmission":27,"../model/AssignmentSubmissionUpdate":28,"../model/ClassCreation":30,"../model/ClassDetails":31,"../model/ClassUpdate":39,"../model/FlatErrorResponse":40}],19:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/FlatErrorResponse', 'model/GroupDetails', 'model/ScoreDetails', 'model/UserPublic'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/GroupDetails'), require('../model/ScoreDetails'), require('../model/UserPublic'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.GroupApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.GroupDetails, root.FlatApi.ScoreDetails, root.FlatApi.UserPublic);
+  }
+}(this, function(ApiClient, FlatErrorResponse, GroupDetails, ScoreDetails, UserPublic) {
   'use strict';
 
   /**
    * Group service.
    * @module api/GroupApi
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -4176,6 +5727,51 @@ module.exports = request;
 
 
     /**
+     * Callback function to receive the result of the getGroupDetails operation.
+     * @callback module:api/GroupApi~getGroupDetailsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/GroupDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get group information
+     * @param {String} group Unique identifier of a Flat group 
+     * @param {module:api/GroupApi~getGroupDetailsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/GroupDetails}
+     */
+    this.getGroupDetails = function(group, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'group' is set
+      if (group === undefined || group === null) {
+        throw new Error("Missing the required parameter 'group' when calling getGroupDetails");
+      }
+
+
+      var pathParams = {
+        'group': group
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = GroupDetails;
+
+      return this.apiClient.callApi(
+        '/groups/{group}', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
      * Callback function to receive the result of the getGroupScores operation.
      * @callback module:api/GroupApi~getGroupScoresCallback
      * @param {String} error Error message, if any.
@@ -4186,7 +5782,7 @@ module.exports = request;
     /**
      * List group&#39;s scores
      * Get the list of scores shared with a group. 
-     * @param {String} group Unique identifier of the group
+     * @param {String} group Unique identifier of a Flat group 
      * @param {Object} opts Optional parameters
      * @param {String} opts.parent Filter the score forked from the score id &#x60;parent&#x60;
      * @param {module:api/GroupApi~getGroupScoresCallback} callback The callback function, accepting three arguments: error, data, response
@@ -4213,7 +5809,7 @@ module.exports = request;
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['OAuth2'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = [ScoreDetails];
@@ -4224,21 +5820,69 @@ module.exports = request;
         authNames, contentTypes, accepts, returnType, callback
       );
     }
+
+    /**
+     * Callback function to receive the result of the listGroupUsers operation.
+     * @callback module:api/GroupApi~listGroupUsersCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/UserPublic>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List group&#39;s users
+     * @param {String} group Unique identifier of a Flat group 
+     * @param {module:api/GroupApi~listGroupUsersCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/UserPublic>}
+     */
+    this.listGroupUsers = function(group, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'group' is set
+      if (group === undefined || group === null) {
+        throw new Error("Missing the required parameter 'group' when calling listGroupUsers");
+      }
+
+
+      var pathParams = {
+        'group': group
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [UserPublic];
+
+      return this.apiClient.callApi(
+        '/groups/{group}/users', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
   };
 
   return exports;
 }));
 
-},{"../ApiClient":11,"../model/FlatErrorResponse":18,"../model/ScoreDetails":32}],14:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/GroupDetails":45,"../model/ScoreDetails":67,"../model/UserPublic":84}],20:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -4246,24 +5890,425 @@ module.exports = request;
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/FlatErrorResponse', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCreation', 'model/ScoreDetails', 'model/ScoreFork', 'model/ScoreModification', 'model/ScoreRevision', 'model/ScoreRevisionCreation'], factory);
+    define(['ApiClient', 'model/FlatErrorResponse', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/UserCreation', 'model/UserDetailsAdmin'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/ScoreCollaborator'), require('../model/ScoreCollaboratorCreation'), require('../model/ScoreComment'), require('../model/ScoreCommentCreation'), require('../model/ScoreCommentUpdate'), require('../model/ScoreCreation'), require('../model/ScoreDetails'), require('../model/ScoreFork'), require('../model/ScoreModification'), require('../model/ScoreRevision'), require('../model/ScoreRevisionCreation'));
+    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/LtiCredentials'), require('../model/LtiCredentialsCreation'), require('../model/OrganizationInvitation'), require('../model/OrganizationInvitationCreation'), require('../model/UserCreation'), require('../model/UserDetailsAdmin'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.ScoreApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.ScoreCollaborator, root.FlatApi.ScoreCollaboratorCreation, root.FlatApi.ScoreComment, root.FlatApi.ScoreCommentCreation, root.FlatApi.ScoreCommentUpdate, root.FlatApi.ScoreCreation, root.FlatApi.ScoreDetails, root.FlatApi.ScoreFork, root.FlatApi.ScoreModification, root.FlatApi.ScoreRevision, root.FlatApi.ScoreRevisionCreation);
+    root.FlatApi.OrganizationApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.LtiCredentials, root.FlatApi.LtiCredentialsCreation, root.FlatApi.OrganizationInvitation, root.FlatApi.OrganizationInvitationCreation, root.FlatApi.UserCreation, root.FlatApi.UserDetailsAdmin);
   }
-}(this, function(ApiClient, FlatErrorResponse, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentCreation, ScoreCommentUpdate, ScoreCreation, ScoreDetails, ScoreFork, ScoreModification, ScoreRevision, ScoreRevisionCreation) {
+}(this, function(ApiClient, FlatErrorResponse, LtiCredentials, LtiCredentialsCreation, OrganizationInvitation, OrganizationInvitationCreation, UserCreation, UserDetailsAdmin) {
+  'use strict';
+
+  /**
+   * Organization service.
+   * @module api/OrganizationApi
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new OrganizationApi. 
+   * @alias module:api/OrganizationApi
+   * @class
+   * @param {module:ApiClient} apiClient Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the createLtiCredentials operation.
+     * @callback module:api/OrganizationApi~createLtiCredentialsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/LtiCredentials} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new couple of LTI 1.x credentials
+     * Flat for Education is a Certified LTI Provider. You can use these API methods to automate the creation of LTI credentials. You can read more about our LTI implementation, supported components and LTI Endpoints in our [Developer Documentation](https://flat.io/developers/docs/lti/). 
+     * @param {module:model/LtiCredentialsCreation} body 
+     * @param {module:api/OrganizationApi~createLtiCredentialsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/LtiCredentials}
+     */
+    this.createLtiCredentials = function(body, callback) {
+      var postBody = body;
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling createLtiCredentials");
+      }
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = LtiCredentials;
+
+      return this.apiClient.callApi(
+        '/organizations/lti/credentials', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createOrganizationInvitation operation.
+     * @callback module:api/OrganizationApi~createOrganizationInvitationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/OrganizationInvitation} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new invitation to join the organization
+     * This method creates and sends invitation for teachers and admins.  Invitations can only be used by new Flat users or users who are not part of the organization yet.  If the email of the user is already associated to a user of your organization, the API will simply update the role of the existing user and won&#39;t send an invitation. In this case, the property &#x60;usedBy&#x60; will be directly filled with the uniquer identifier of the corresponding user. 
+     * @param {Object} opts Optional parameters
+     * @param {module:model/OrganizationInvitationCreation} opts.body 
+     * @param {module:api/OrganizationApi~createOrganizationInvitationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/OrganizationInvitation}
+     */
+    this.createOrganizationInvitation = function(opts, callback) {
+      opts = opts || {};
+      var postBody = opts['body'];
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = OrganizationInvitation;
+
+      return this.apiClient.callApi(
+        '/organizations/invitations', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createOrganizationUser operation.
+     * @callback module:api/OrganizationApi~createOrganizationUserCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/UserDetailsAdmin} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new user account
+     * @param {Object} opts Optional parameters
+     * @param {module:model/UserCreation} opts.body 
+     * @param {module:api/OrganizationApi~createOrganizationUserCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/UserDetailsAdmin}
+     */
+    this.createOrganizationUser = function(opts, callback) {
+      opts = opts || {};
+      var postBody = opts['body'];
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = UserDetailsAdmin;
+
+      return this.apiClient.callApi(
+        '/organizations/users', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listLtiCredentials operation.
+     * @callback module:api/OrganizationApi~listLtiCredentialsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/LtiCredentials>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List LTI 1.x credentials
+     * @param {module:api/OrganizationApi~listLtiCredentialsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/LtiCredentials>}
+     */
+    this.listLtiCredentials = function(callback) {
+      var postBody = null;
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [LtiCredentials];
+
+      return this.apiClient.callApi(
+        '/organizations/lti/credentials', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listOrganizationInvitations operation.
+     * @callback module:api/OrganizationApi~listOrganizationInvitationsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/OrganizationInvitation>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List the organization invitations
+     * @param {Object} opts Optional parameters
+     * @param {module:model/String} opts.role Filter users by role
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
+     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {module:api/OrganizationApi~listOrganizationInvitationsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/OrganizationInvitation>}
+     */
+    this.listOrganizationInvitations = function(opts, callback) {
+      opts = opts || {};
+      var postBody = null;
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+        'role': opts['role'],
+        'limit': opts['limit'],
+        'offset': opts['offset']
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [OrganizationInvitation];
+
+      return this.apiClient.callApi(
+        '/organizations/invitations', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the listOrganizationUsers operation.
+     * @callback module:api/OrganizationApi~listOrganizationUsersCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/UserDetailsAdmin>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List the organization users
+     * @param {Object} opts Optional parameters
+     * @param {module:model/String} opts.role Filter users by role
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
+     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {module:api/OrganizationApi~listOrganizationUsersCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/UserDetailsAdmin>}
+     */
+    this.listOrganizationUsers = function(opts, callback) {
+      opts = opts || {};
+      var postBody = null;
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+        'role': opts['role'],
+        'limit': opts['limit'],
+        'offset': opts['offset']
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [UserDetailsAdmin];
+
+      return this.apiClient.callApi(
+        '/organizations/users', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the removeOrganizationInvitation operation.
+     * @callback module:api/OrganizationApi~removeOrganizationInvitationCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Remove an organization invitation
+     * @param {String} invitation Unique identifier of the invitation
+     * @param {module:api/OrganizationApi~removeOrganizationInvitationCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.removeOrganizationInvitation = function(invitation, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'invitation' is set
+      if (invitation === undefined || invitation === null) {
+        throw new Error("Missing the required parameter 'invitation' when calling removeOrganizationInvitation");
+      }
+
+
+      var pathParams = {
+        'invitation': invitation
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/organizations/invitations/{invitation}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the revokeLtiCredentials operation.
+     * @callback module:api/OrganizationApi~revokeLtiCredentialsCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Revoke LTI 1.x credentials
+     * @param {String} credentials Credentials unique identifier 
+     * @param {module:api/OrganizationApi~revokeLtiCredentialsCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.revokeLtiCredentials = function(credentials, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'credentials' is set
+      if (credentials === undefined || credentials === null) {
+        throw new Error("Missing the required parameter 'credentials' when calling revokeLtiCredentials");
+      }
+
+
+      var pathParams = {
+        'credentials': credentials
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/organizations/lti/credentials/{credentials}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/LtiCredentials":50,"../model/LtiCredentialsCreation":51,"../model/OrganizationInvitation":54,"../model/OrganizationInvitationCreation":55,"../model/UserCreation":80,"../model/UserDetailsAdmin":82}],21:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/AssignmentSubmission', 'model/FlatErrorResponse', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCreation', 'model/ScoreDetails', 'model/ScoreFork', 'model/ScoreModification', 'model/ScoreRevision', 'model/ScoreRevisionCreation'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/AssignmentSubmission'), require('../model/FlatErrorResponse'), require('../model/ScoreCollaborator'), require('../model/ScoreCollaboratorCreation'), require('../model/ScoreComment'), require('../model/ScoreCommentCreation'), require('../model/ScoreCommentUpdate'), require('../model/ScoreCreation'), require('../model/ScoreDetails'), require('../model/ScoreFork'), require('../model/ScoreModification'), require('../model/ScoreRevision'), require('../model/ScoreRevisionCreation'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ScoreApi = factory(root.FlatApi.ApiClient, root.FlatApi.AssignmentSubmission, root.FlatApi.FlatErrorResponse, root.FlatApi.ScoreCollaborator, root.FlatApi.ScoreCollaboratorCreation, root.FlatApi.ScoreComment, root.FlatApi.ScoreCommentCreation, root.FlatApi.ScoreCommentUpdate, root.FlatApi.ScoreCreation, root.FlatApi.ScoreDetails, root.FlatApi.ScoreFork, root.FlatApi.ScoreModification, root.FlatApi.ScoreRevision, root.FlatApi.ScoreRevisionCreation);
+  }
+}(this, function(ApiClient, AssignmentSubmission, FlatErrorResponse, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentCreation, ScoreCommentUpdate, ScoreCreation, ScoreDetails, ScoreFork, ScoreModification, ScoreRevision, ScoreRevisionCreation) {
   'use strict';
 
   /**
    * Score service.
    * @module api/ScoreApi
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -4691,7 +6736,7 @@ module.exports = request;
     /**
      * List group&#39;s scores
      * Get the list of scores shared with a group. 
-     * @param {String} group Unique identifier of the group
+     * @param {String} group Unique identifier of a Flat group 
      * @param {Object} opts Optional parameters
      * @param {String} opts.parent Filter the score forked from the score id &#x60;parent&#x60;
      * @param {module:api/ScoreApi~getGroupScoresCallback} callback The callback function, accepting three arguments: error, data, response
@@ -4718,7 +6763,7 @@ module.exports = request;
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['OAuth2'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = [ScoreDetails];
@@ -4982,7 +7027,7 @@ module.exports = request;
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['OAuth2'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = ScoreRevision;
@@ -5050,7 +7095,7 @@ module.exports = request;
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['OAuth2'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json', 'application/vnd.recordare.musicxml+xml', 'application/vnd.recordare.musicxml', 'audio/mp3', 'audio/wav', 'audio/midi', 'image/png'];
       var returnType = 'Blob';
@@ -5107,6 +7152,52 @@ module.exports = request;
 
       return this.apiClient.callApi(
         '/scores/{score}/revisions', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getScoreSubmissions operation.
+     * @callback module:api/ScoreApi~getScoreSubmissionsCallback
+     * @param {String} error Error message, if any.
+     * @param {Array.<module:model/AssignmentSubmission>} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * List submissions related to the score
+     * This API call will list the different assignments submissions where the score is attached. This method can be used by anyone that are part of the organization and have at least read access to the document. 
+     * @param {String} score Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. &#x60;ScoreDetails.id&#x60;) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with &#x60;drive-&#x60; (e.g. &#x60;drive-0B000000000&#x60;). 
+     * @param {module:api/ScoreApi~getScoreSubmissionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link Array.<module:model/AssignmentSubmission>}
+     */
+    this.getScoreSubmissions = function(score, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'score' is set
+      if (score === undefined || score === null) {
+        throw new Error("Missing the required parameter 'score' when calling getScoreSubmissions");
+      }
+
+
+      var pathParams = {
+        'score': score
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = [AssignmentSubmission];
+
+      return this.apiClient.callApi(
+        '/scores/{score}/submissions', 'GET',
         pathParams, queryParams, headerParams, formParams, postBody,
         authNames, contentTypes, accepts, returnType, callback
       );
@@ -5446,16 +7537,19 @@ module.exports = request;
   return exports;
 }));
 
-},{"../ApiClient":11,"../model/FlatErrorResponse":18,"../model/ScoreCollaborator":22,"../model/ScoreCollaboratorCreation":23,"../model/ScoreComment":24,"../model/ScoreCommentCreation":26,"../model/ScoreCommentUpdate":27,"../model/ScoreCreation":29,"../model/ScoreDetails":32,"../model/ScoreFork":33,"../model/ScoreModification":35,"../model/ScoreRevision":37,"../model/ScoreRevisionCreation":38}],15:[function(require,module,exports){
+},{"../ApiClient":16,"../model/AssignmentSubmission":27,"../model/FlatErrorResponse":40,"../model/ScoreCollaborator":57,"../model/ScoreCollaboratorCreation":58,"../model/ScoreComment":59,"../model/ScoreCommentCreation":61,"../model/ScoreCommentUpdate":62,"../model/ScoreCreation":64,"../model/ScoreDetails":67,"../model/ScoreFork":68,"../model/ScoreModification":70,"../model/ScoreRevision":72,"../model/ScoreRevisionCreation":73}],22:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -5480,7 +7574,7 @@ module.exports = request;
   /**
    * User service.
    * @module api/UserApi
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -5643,16 +7737,19 @@ module.exports = request;
   return exports;
 }));
 
-},{"../ApiClient":11,"../model/FlatErrorResponse":18,"../model/ScoreDetails":32,"../model/UserPublic":46}],16:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/ScoreDetails":67,"../model/UserPublic":84}],23:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -5660,12 +7757,12 @@ module.exports = request;
 (function(factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassRoles', 'model/FlatErrorResponse', 'model/FlatLocales', 'model/Group', 'model/OrganizationRoles', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentContext', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCommentsCounts', 'model/ScoreCreation', 'model/ScoreData', 'model/ScoreDataEncoding', 'model/ScoreDetails', 'model/ScoreFork', 'model/ScoreLikesCounts', 'model/ScoreModification', 'model/ScorePrivacy', 'model/ScoreRevision', 'model/ScoreRevisionCreation', 'model/ScoreRevisionStatistics', 'model/ScoreRights', 'model/ScoreSource', 'model/ScoreSummary', 'model/ScoreViewsCounts', 'model/UserBasics', 'model/UserDetails', 'model/UserPublic', 'model/UserPublicSummary', 'api/AccountApi', 'api/GroupApi', 'api/ScoreApi', 'api/UserApi'], factory);
+    define(['ApiClient', 'model/Assignment', 'model/AssignmentCopy', 'model/AssignmentCreation', 'model/AssignmentSubmission', 'model/AssignmentSubmissionUpdate', 'model/ClassAttachmentCreation', 'model/ClassCreation', 'model/ClassDetails', 'model/ClassDetailsCanvas', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassRoles', 'model/ClassState', 'model/ClassStreamPostMode', 'model/ClassUpdate', 'model/FlatErrorResponse', 'model/FlatLocales', 'model/GoogleClassroomCoursework', 'model/GoogleClassroomSubmission', 'model/Group', 'model/GroupDetails', 'model/GroupType', 'model/LicenseMode', 'model/LicenseSources', 'model/LmsName', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/MediaAttachment', 'model/MediaScoreSharingMode', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/OrganizationRoles', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentContext', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCommentsCounts', 'model/ScoreCreation', 'model/ScoreData', 'model/ScoreDataEncoding', 'model/ScoreFork', 'model/ScoreLikesCounts', 'model/ScoreModification', 'model/ScorePrivacy', 'model/ScoreRevision', 'model/ScoreRevisionCreation', 'model/ScoreRevisionStatistics', 'model/ScoreRights', 'model/ScoreSource', 'model/ScoreSummary', 'model/ScoreViewsCounts', 'model/UserBasics', 'model/UserCreation', 'model/UserDetailsAdminLicense', 'model/ScoreDetails', 'model/UserPublicSummary', 'model/UserDetailsAdmin', 'model/UserPublic', 'model/UserDetails', 'api/AccountApi', 'api/ClassApi', 'api/GroupApi', 'api/OrganizationApi', 'api/ScoreApi', 'api/UserApi'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('./ApiClient'), require('./model/ClassRoles'), require('./model/FlatErrorResponse'), require('./model/FlatLocales'), require('./model/Group'), require('./model/OrganizationRoles'), require('./model/ScoreCollaborator'), require('./model/ScoreCollaboratorCreation'), require('./model/ScoreComment'), require('./model/ScoreCommentContext'), require('./model/ScoreCommentCreation'), require('./model/ScoreCommentUpdate'), require('./model/ScoreCommentsCounts'), require('./model/ScoreCreation'), require('./model/ScoreData'), require('./model/ScoreDataEncoding'), require('./model/ScoreDetails'), require('./model/ScoreFork'), require('./model/ScoreLikesCounts'), require('./model/ScoreModification'), require('./model/ScorePrivacy'), require('./model/ScoreRevision'), require('./model/ScoreRevisionCreation'), require('./model/ScoreRevisionStatistics'), require('./model/ScoreRights'), require('./model/ScoreSource'), require('./model/ScoreSummary'), require('./model/ScoreViewsCounts'), require('./model/UserBasics'), require('./model/UserDetails'), require('./model/UserPublic'), require('./model/UserPublicSummary'), require('./api/AccountApi'), require('./api/GroupApi'), require('./api/ScoreApi'), require('./api/UserApi'));
+    module.exports = factory(require('./ApiClient'), require('./model/Assignment'), require('./model/AssignmentCopy'), require('./model/AssignmentCreation'), require('./model/AssignmentSubmission'), require('./model/AssignmentSubmissionUpdate'), require('./model/ClassAttachmentCreation'), require('./model/ClassCreation'), require('./model/ClassDetails'), require('./model/ClassDetailsCanvas'), require('./model/ClassDetailsGoogleClassroom'), require('./model/ClassDetailsGoogleDrive'), require('./model/ClassDetailsLti'), require('./model/ClassRoles'), require('./model/ClassState'), require('./model/ClassStreamPostMode'), require('./model/ClassUpdate'), require('./model/FlatErrorResponse'), require('./model/FlatLocales'), require('./model/GoogleClassroomCoursework'), require('./model/GoogleClassroomSubmission'), require('./model/Group'), require('./model/GroupDetails'), require('./model/GroupType'), require('./model/LicenseMode'), require('./model/LicenseSources'), require('./model/LmsName'), require('./model/LtiCredentials'), require('./model/LtiCredentialsCreation'), require('./model/MediaAttachment'), require('./model/MediaScoreSharingMode'), require('./model/OrganizationInvitation'), require('./model/OrganizationInvitationCreation'), require('./model/OrganizationRoles'), require('./model/ScoreCollaborator'), require('./model/ScoreCollaboratorCreation'), require('./model/ScoreComment'), require('./model/ScoreCommentContext'), require('./model/ScoreCommentCreation'), require('./model/ScoreCommentUpdate'), require('./model/ScoreCommentsCounts'), require('./model/ScoreCreation'), require('./model/ScoreData'), require('./model/ScoreDataEncoding'), require('./model/ScoreFork'), require('./model/ScoreLikesCounts'), require('./model/ScoreModification'), require('./model/ScorePrivacy'), require('./model/ScoreRevision'), require('./model/ScoreRevisionCreation'), require('./model/ScoreRevisionStatistics'), require('./model/ScoreRights'), require('./model/ScoreSource'), require('./model/ScoreSummary'), require('./model/ScoreViewsCounts'), require('./model/UserBasics'), require('./model/UserCreation'), require('./model/UserDetailsAdminLicense'), require('./model/ScoreDetails'), require('./model/UserPublicSummary'), require('./model/UserDetailsAdmin'), require('./model/UserPublic'), require('./model/UserDetails'), require('./api/AccountApi'), require('./api/ClassApi'), require('./api/GroupApi'), require('./api/OrganizationApi'), require('./api/ScoreApi'), require('./api/UserApi'));
   }
-}(function(ApiClient, ClassRoles, FlatErrorResponse, FlatLocales, Group, OrganizationRoles, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentContext, ScoreCommentCreation, ScoreCommentUpdate, ScoreCommentsCounts, ScoreCreation, ScoreData, ScoreDataEncoding, ScoreDetails, ScoreFork, ScoreLikesCounts, ScoreModification, ScorePrivacy, ScoreRevision, ScoreRevisionCreation, ScoreRevisionStatistics, ScoreRights, ScoreSource, ScoreSummary, ScoreViewsCounts, UserBasics, UserDetails, UserPublic, UserPublicSummary, AccountApi, GroupApi, ScoreApi, UserApi) {
+}(function(ApiClient, Assignment, AssignmentCopy, AssignmentCreation, AssignmentSubmission, AssignmentSubmissionUpdate, ClassAttachmentCreation, ClassCreation, ClassDetails, ClassDetailsCanvas, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassRoles, ClassState, ClassStreamPostMode, ClassUpdate, FlatErrorResponse, FlatLocales, GoogleClassroomCoursework, GoogleClassroomSubmission, Group, GroupDetails, GroupType, LicenseMode, LicenseSources, LmsName, LtiCredentials, LtiCredentialsCreation, MediaAttachment, MediaScoreSharingMode, OrganizationInvitation, OrganizationInvitationCreation, OrganizationRoles, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentContext, ScoreCommentCreation, ScoreCommentUpdate, ScoreCommentsCounts, ScoreCreation, ScoreData, ScoreDataEncoding, ScoreFork, ScoreLikesCounts, ScoreModification, ScorePrivacy, ScoreRevision, ScoreRevisionCreation, ScoreRevisionStatistics, ScoreRights, ScoreSource, ScoreSummary, ScoreViewsCounts, UserBasics, UserCreation, UserDetailsAdminLicense, ScoreDetails, UserPublicSummary, UserDetailsAdmin, UserPublic, UserDetails, AccountApi, ClassApi, GroupApi, OrganizationApi, ScoreApi, UserApi) {
   'use strict';
 
   /**
@@ -5697,7 +7794,7 @@ module.exports = request;
    * </pre>
    * </p>
    * @module index
-   * @version 2.0.0
+   * @version 2.2.0
    */
   var exports = {
     /**
@@ -5706,10 +7803,85 @@ module.exports = request;
      */
     ApiClient: ApiClient,
     /**
+     * The Assignment model constructor.
+     * @property {module:model/Assignment}
+     */
+    Assignment: Assignment,
+    /**
+     * The AssignmentCopy model constructor.
+     * @property {module:model/AssignmentCopy}
+     */
+    AssignmentCopy: AssignmentCopy,
+    /**
+     * The AssignmentCreation model constructor.
+     * @property {module:model/AssignmentCreation}
+     */
+    AssignmentCreation: AssignmentCreation,
+    /**
+     * The AssignmentSubmission model constructor.
+     * @property {module:model/AssignmentSubmission}
+     */
+    AssignmentSubmission: AssignmentSubmission,
+    /**
+     * The AssignmentSubmissionUpdate model constructor.
+     * @property {module:model/AssignmentSubmissionUpdate}
+     */
+    AssignmentSubmissionUpdate: AssignmentSubmissionUpdate,
+    /**
+     * The ClassAttachmentCreation model constructor.
+     * @property {module:model/ClassAttachmentCreation}
+     */
+    ClassAttachmentCreation: ClassAttachmentCreation,
+    /**
+     * The ClassCreation model constructor.
+     * @property {module:model/ClassCreation}
+     */
+    ClassCreation: ClassCreation,
+    /**
+     * The ClassDetails model constructor.
+     * @property {module:model/ClassDetails}
+     */
+    ClassDetails: ClassDetails,
+    /**
+     * The ClassDetailsCanvas model constructor.
+     * @property {module:model/ClassDetailsCanvas}
+     */
+    ClassDetailsCanvas: ClassDetailsCanvas,
+    /**
+     * The ClassDetailsGoogleClassroom model constructor.
+     * @property {module:model/ClassDetailsGoogleClassroom}
+     */
+    ClassDetailsGoogleClassroom: ClassDetailsGoogleClassroom,
+    /**
+     * The ClassDetailsGoogleDrive model constructor.
+     * @property {module:model/ClassDetailsGoogleDrive}
+     */
+    ClassDetailsGoogleDrive: ClassDetailsGoogleDrive,
+    /**
+     * The ClassDetailsLti model constructor.
+     * @property {module:model/ClassDetailsLti}
+     */
+    ClassDetailsLti: ClassDetailsLti,
+    /**
      * The ClassRoles model constructor.
      * @property {module:model/ClassRoles}
      */
     ClassRoles: ClassRoles,
+    /**
+     * The ClassState model constructor.
+     * @property {module:model/ClassState}
+     */
+    ClassState: ClassState,
+    /**
+     * The ClassStreamPostMode model constructor.
+     * @property {module:model/ClassStreamPostMode}
+     */
+    ClassStreamPostMode: ClassStreamPostMode,
+    /**
+     * The ClassUpdate model constructor.
+     * @property {module:model/ClassUpdate}
+     */
+    ClassUpdate: ClassUpdate,
     /**
      * The FlatErrorResponse model constructor.
      * @property {module:model/FlatErrorResponse}
@@ -5721,10 +7893,75 @@ module.exports = request;
      */
     FlatLocales: FlatLocales,
     /**
+     * The GoogleClassroomCoursework model constructor.
+     * @property {module:model/GoogleClassroomCoursework}
+     */
+    GoogleClassroomCoursework: GoogleClassroomCoursework,
+    /**
+     * The GoogleClassroomSubmission model constructor.
+     * @property {module:model/GoogleClassroomSubmission}
+     */
+    GoogleClassroomSubmission: GoogleClassroomSubmission,
+    /**
      * The Group model constructor.
      * @property {module:model/Group}
      */
     Group: Group,
+    /**
+     * The GroupDetails model constructor.
+     * @property {module:model/GroupDetails}
+     */
+    GroupDetails: GroupDetails,
+    /**
+     * The GroupType model constructor.
+     * @property {module:model/GroupType}
+     */
+    GroupType: GroupType,
+    /**
+     * The LicenseMode model constructor.
+     * @property {module:model/LicenseMode}
+     */
+    LicenseMode: LicenseMode,
+    /**
+     * The LicenseSources model constructor.
+     * @property {module:model/LicenseSources}
+     */
+    LicenseSources: LicenseSources,
+    /**
+     * The LmsName model constructor.
+     * @property {module:model/LmsName}
+     */
+    LmsName: LmsName,
+    /**
+     * The LtiCredentials model constructor.
+     * @property {module:model/LtiCredentials}
+     */
+    LtiCredentials: LtiCredentials,
+    /**
+     * The LtiCredentialsCreation model constructor.
+     * @property {module:model/LtiCredentialsCreation}
+     */
+    LtiCredentialsCreation: LtiCredentialsCreation,
+    /**
+     * The MediaAttachment model constructor.
+     * @property {module:model/MediaAttachment}
+     */
+    MediaAttachment: MediaAttachment,
+    /**
+     * The MediaScoreSharingMode model constructor.
+     * @property {module:model/MediaScoreSharingMode}
+     */
+    MediaScoreSharingMode: MediaScoreSharingMode,
+    /**
+     * The OrganizationInvitation model constructor.
+     * @property {module:model/OrganizationInvitation}
+     */
+    OrganizationInvitation: OrganizationInvitation,
+    /**
+     * The OrganizationInvitationCreation model constructor.
+     * @property {module:model/OrganizationInvitationCreation}
+     */
+    OrganizationInvitationCreation: OrganizationInvitationCreation,
     /**
      * The OrganizationRoles model constructor.
      * @property {module:model/OrganizationRoles}
@@ -5780,11 +8017,6 @@ module.exports = request;
      * @property {module:model/ScoreDataEncoding}
      */
     ScoreDataEncoding: ScoreDataEncoding,
-    /**
-     * The ScoreDetails model constructor.
-     * @property {module:model/ScoreDetails}
-     */
-    ScoreDetails: ScoreDetails,
     /**
      * The ScoreFork model constructor.
      * @property {module:model/ScoreFork}
@@ -5846,30 +8078,60 @@ module.exports = request;
      */
     UserBasics: UserBasics,
     /**
-     * The UserDetails model constructor.
-     * @property {module:model/UserDetails}
+     * The UserCreation model constructor.
+     * @property {module:model/UserCreation}
      */
-    UserDetails: UserDetails,
+    UserCreation: UserCreation,
     /**
-     * The UserPublic model constructor.
-     * @property {module:model/UserPublic}
+     * The UserDetailsAdminLicense model constructor.
+     * @property {module:model/UserDetailsAdminLicense}
      */
-    UserPublic: UserPublic,
+    UserDetailsAdminLicense: UserDetailsAdminLicense,
+    /**
+     * The ScoreDetails model constructor.
+     * @property {module:model/ScoreDetails}
+     */
+    ScoreDetails: ScoreDetails,
     /**
      * The UserPublicSummary model constructor.
      * @property {module:model/UserPublicSummary}
      */
     UserPublicSummary: UserPublicSummary,
     /**
+     * The UserDetailsAdmin model constructor.
+     * @property {module:model/UserDetailsAdmin}
+     */
+    UserDetailsAdmin: UserDetailsAdmin,
+    /**
+     * The UserPublic model constructor.
+     * @property {module:model/UserPublic}
+     */
+    UserPublic: UserPublic,
+    /**
+     * The UserDetails model constructor.
+     * @property {module:model/UserDetails}
+     */
+    UserDetails: UserDetails,
+    /**
      * The AccountApi service constructor.
      * @property {module:api/AccountApi}
      */
     AccountApi: AccountApi,
     /**
+     * The ClassApi service constructor.
+     * @property {module:api/ClassApi}
+     */
+    ClassApi: ClassApi,
+    /**
      * The GroupApi service constructor.
      * @property {module:api/GroupApi}
      */
     GroupApi: GroupApi,
+    /**
+     * The OrganizationApi service constructor.
+     * @property {module:api/OrganizationApi}
+     */
+    OrganizationApi: OrganizationApi,
     /**
      * The ScoreApi service constructor.
      * @property {module:api/ScoreApi}
@@ -5885,16 +8147,1550 @@ module.exports = request;
   return exports;
 }));
 
-},{"./ApiClient":11,"./api/AccountApi":12,"./api/GroupApi":13,"./api/ScoreApi":14,"./api/UserApi":15,"./model/ClassRoles":17,"./model/FlatErrorResponse":18,"./model/FlatLocales":19,"./model/Group":20,"./model/OrganizationRoles":21,"./model/ScoreCollaborator":22,"./model/ScoreCollaboratorCreation":23,"./model/ScoreComment":24,"./model/ScoreCommentContext":25,"./model/ScoreCommentCreation":26,"./model/ScoreCommentUpdate":27,"./model/ScoreCommentsCounts":28,"./model/ScoreCreation":29,"./model/ScoreData":30,"./model/ScoreDataEncoding":31,"./model/ScoreDetails":32,"./model/ScoreFork":33,"./model/ScoreLikesCounts":34,"./model/ScoreModification":35,"./model/ScorePrivacy":36,"./model/ScoreRevision":37,"./model/ScoreRevisionCreation":38,"./model/ScoreRevisionStatistics":39,"./model/ScoreRights":40,"./model/ScoreSource":41,"./model/ScoreSummary":42,"./model/ScoreViewsCounts":43,"./model/UserBasics":44,"./model/UserDetails":45,"./model/UserPublic":46,"./model/UserPublicSummary":47}],17:[function(require,module,exports){
+},{"./ApiClient":16,"./api/AccountApi":17,"./api/ClassApi":18,"./api/GroupApi":19,"./api/OrganizationApi":20,"./api/ScoreApi":21,"./api/UserApi":22,"./model/Assignment":24,"./model/AssignmentCopy":25,"./model/AssignmentCreation":26,"./model/AssignmentSubmission":27,"./model/AssignmentSubmissionUpdate":28,"./model/ClassAttachmentCreation":29,"./model/ClassCreation":30,"./model/ClassDetails":31,"./model/ClassDetailsCanvas":32,"./model/ClassDetailsGoogleClassroom":33,"./model/ClassDetailsGoogleDrive":34,"./model/ClassDetailsLti":35,"./model/ClassRoles":36,"./model/ClassState":37,"./model/ClassStreamPostMode":38,"./model/ClassUpdate":39,"./model/FlatErrorResponse":40,"./model/FlatLocales":41,"./model/GoogleClassroomCoursework":42,"./model/GoogleClassroomSubmission":43,"./model/Group":44,"./model/GroupDetails":45,"./model/GroupType":46,"./model/LicenseMode":47,"./model/LicenseSources":48,"./model/LmsName":49,"./model/LtiCredentials":50,"./model/LtiCredentialsCreation":51,"./model/MediaAttachment":52,"./model/MediaScoreSharingMode":53,"./model/OrganizationInvitation":54,"./model/OrganizationInvitationCreation":55,"./model/OrganizationRoles":56,"./model/ScoreCollaborator":57,"./model/ScoreCollaboratorCreation":58,"./model/ScoreComment":59,"./model/ScoreCommentContext":60,"./model/ScoreCommentCreation":61,"./model/ScoreCommentUpdate":62,"./model/ScoreCommentsCounts":63,"./model/ScoreCreation":64,"./model/ScoreData":65,"./model/ScoreDataEncoding":66,"./model/ScoreDetails":67,"./model/ScoreFork":68,"./model/ScoreLikesCounts":69,"./model/ScoreModification":70,"./model/ScorePrivacy":71,"./model/ScoreRevision":72,"./model/ScoreRevisionCreation":73,"./model/ScoreRevisionStatistics":74,"./model/ScoreRights":75,"./model/ScoreSource":76,"./model/ScoreSummary":77,"./model/ScoreViewsCounts":78,"./model/UserBasics":79,"./model/UserCreation":80,"./model/UserDetails":81,"./model/UserDetailsAdmin":82,"./model/UserDetailsAdminLicense":83,"./model/UserPublic":84,"./model/UserPublicSummary":85}],24:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/AssignmentSubmission', 'model/GoogleClassroomCoursework', 'model/MediaAttachment'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./AssignmentSubmission'), require('./GoogleClassroomCoursework'), require('./MediaAttachment'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.Assignment = factory(root.FlatApi.ApiClient, root.FlatApi.AssignmentSubmission, root.FlatApi.GoogleClassroomCoursework, root.FlatApi.MediaAttachment);
+  }
+}(this, function(ApiClient, AssignmentSubmission, GoogleClassroomCoursework, MediaAttachment) {
+  'use strict';
+
+
+
+
+  /**
+   * The Assignment model module.
+   * @module model/Assignment
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>Assignment</code>.
+   * Assignment details
+   * @alias module:model/Assignment
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>Assignment</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Assignment} obj Optional instance to populate.
+   * @return {module:model/Assignment} The populated <code>Assignment</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('state')) {
+        obj['state'] = ApiClient.convertToType(data['state'], 'String');
+      }
+      if (data.hasOwnProperty('title')) {
+        obj['title'] = ApiClient.convertToType(data['title'], 'String');
+      }
+      if (data.hasOwnProperty('classroom')) {
+        obj['classroom'] = ApiClient.convertToType(data['classroom'], 'String');
+      }
+      if (data.hasOwnProperty('description')) {
+        obj['description'] = ApiClient.convertToType(data['description'], 'String');
+      }
+      if (data.hasOwnProperty('attachments')) {
+        obj['attachments'] = ApiClient.convertToType(data['attachments'], [MediaAttachment]);
+      }
+      if (data.hasOwnProperty('submissions')) {
+        obj['submissions'] = ApiClient.convertToType(data['submissions'], [AssignmentSubmission]);
+      }
+      if (data.hasOwnProperty('creator')) {
+        obj['creator'] = ApiClient.convertToType(data['creator'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('scheduledDate')) {
+        obj['scheduledDate'] = ApiClient.convertToType(data['scheduledDate'], 'Date');
+      }
+      if (data.hasOwnProperty('dueDate')) {
+        obj['dueDate'] = ApiClient.convertToType(data['dueDate'], 'Date');
+      }
+      if (data.hasOwnProperty('googleClassroom')) {
+        obj['googleClassroom'] = GoogleClassroomCoursework.constructFromObject(data['googleClassroom']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * State of the assignment
+   * @member {module:model/Assignment.StateEnum} state
+   */
+  exports.prototype['state'] = undefined;
+  /**
+   * Title of the assignment
+   * @member {String} title
+   */
+  exports.prototype['title'] = undefined;
+  /**
+   * The unique identifier of the class where this assignment was posted
+   * @member {String} classroom
+   */
+  exports.prototype['classroom'] = undefined;
+  /**
+   * Description and content of the assignment
+   * @member {String} description
+   */
+  exports.prototype['description'] = undefined;
+  /**
+   * @member {Array.<module:model/MediaAttachment>} attachments
+   */
+  exports.prototype['attachments'] = undefined;
+  /**
+   * @member {Array.<module:model/AssignmentSubmission>} submissions
+   */
+  exports.prototype['submissions'] = undefined;
+  /**
+   * The User unique identifier of the creator of this assignment 
+   * @member {String} creator
+   */
+  exports.prototype['creator'] = undefined;
+  /**
+   * The creation date of this assignment
+   * @member {Date} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * The publication (scheduled) date of the assignment. If this one is specified, the assignment will only be listed to the teachers of the class. 
+   * @member {Date} scheduledDate
+   */
+  exports.prototype['scheduledDate'] = undefined;
+  /**
+   * The due date of this assignment, late submissions will be marked as paste due. 
+   * @member {Date} dueDate
+   */
+  exports.prototype['dueDate'] = undefined;
+  /**
+   * @member {module:model/GoogleClassroomCoursework} googleClassroom
+   */
+  exports.prototype['googleClassroom'] = undefined;
+
+
+  /**
+   * Allowed values for the <code>state</code> property.
+   * @enum {String}
+   * @readonly
+   */
+  exports.StateEnum = {
+    /**
+     * value: "active"
+     * @const
+     */
+    "active": "active",
+    /**
+     * value: "archived"
+     * @const
+     */
+    "archived": "archived"  };
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./AssignmentSubmission":27,"./GoogleClassroomCoursework":42,"./MediaAttachment":52}],25:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.AssignmentCopy = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The AssignmentCopy model module.
+   * @module model/AssignmentCopy
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>AssignmentCopy</code>.
+   * Assignment copy operation
+   * @alias module:model/AssignmentCopy
+   * @class
+   * @param classroom {String} The destination classroom where the assignment will be copied
+   */
+  var exports = function(classroom) {
+    var _this = this;
+
+    _this['classroom'] = classroom;
+  };
+
+  /**
+   * Constructs a <code>AssignmentCopy</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/AssignmentCopy} obj Optional instance to populate.
+   * @return {module:model/AssignmentCopy} The populated <code>AssignmentCopy</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('classroom')) {
+        obj['classroom'] = ApiClient.convertToType(data['classroom'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The destination classroom where the assignment will be copied
+   * @member {String} classroom
+   */
+  exports.prototype['classroom'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],26:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/ClassAttachmentCreation'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./ClassAttachmentCreation'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.AssignmentCreation = factory(root.FlatApi.ApiClient, root.FlatApi.ClassAttachmentCreation);
+  }
+}(this, function(ApiClient, ClassAttachmentCreation) {
+  'use strict';
+
+
+
+
+  /**
+   * The AssignmentCreation model module.
+   * @module model/AssignmentCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>AssignmentCreation</code>.
+   * Assignment creation details
+   * @alias module:model/AssignmentCreation
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>AssignmentCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/AssignmentCreation} obj Optional instance to populate.
+   * @return {module:model/AssignmentCreation} The populated <code>AssignmentCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('title')) {
+        obj['title'] = ApiClient.convertToType(data['title'], 'String');
+      }
+      if (data.hasOwnProperty('description')) {
+        obj['description'] = ApiClient.convertToType(data['description'], 'String');
+      }
+      if (data.hasOwnProperty('attachments')) {
+        obj['attachments'] = ApiClient.convertToType(data['attachments'], [ClassAttachmentCreation]);
+      }
+      if (data.hasOwnProperty('dueDate')) {
+        obj['dueDate'] = ApiClient.convertToType(data['dueDate'], 'Date');
+      }
+      if (data.hasOwnProperty('scheduledDate')) {
+        obj['scheduledDate'] = ApiClient.convertToType(data['scheduledDate'], 'Date');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Title of the assignment
+   * @member {String} title
+   */
+  exports.prototype['title'] = undefined;
+  /**
+   * Description and content of the assignment
+   * @member {String} description
+   */
+  exports.prototype['description'] = undefined;
+  /**
+   * @member {Array.<module:model/ClassAttachmentCreation>} attachments
+   */
+  exports.prototype['attachments'] = undefined;
+  /**
+   * The due date of this assignment, late submissions will be marked as paste due. If not set, the assignment won't have a due date. 
+   * @member {Date} dueDate
+   */
+  exports.prototype['dueDate'] = undefined;
+  /**
+   * The publication (scheduled) date of the assignment. If this one is specified, the assignment will only be listed to the teachers of the class. 
+   * @member {Date} scheduledDate
+   */
+  exports.prototype['scheduledDate'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./ClassAttachmentCreation":29}],27:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/GoogleClassroomSubmission', 'model/MediaAttachment'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./GoogleClassroomSubmission'), require('./MediaAttachment'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.AssignmentSubmission = factory(root.FlatApi.ApiClient, root.FlatApi.GoogleClassroomSubmission, root.FlatApi.MediaAttachment);
+  }
+}(this, function(ApiClient, GoogleClassroomSubmission, MediaAttachment) {
+  'use strict';
+
+
+
+
+  /**
+   * The AssignmentSubmission model module.
+   * @module model/AssignmentSubmission
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>AssignmentSubmission</code>.
+   * Assignment Submission
+   * @alias module:model/AssignmentSubmission
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>AssignmentSubmission</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/AssignmentSubmission} obj Optional instance to populate.
+   * @return {module:model/AssignmentSubmission} The populated <code>AssignmentSubmission</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('classroom')) {
+        obj['classroom'] = ApiClient.convertToType(data['classroom'], 'String');
+      }
+      if (data.hasOwnProperty('assignment')) {
+        obj['assignment'] = ApiClient.convertToType(data['assignment'], 'String');
+      }
+      if (data.hasOwnProperty('creator')) {
+        obj['creator'] = ApiClient.convertToType(data['creator'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'String');
+      }
+      if (data.hasOwnProperty('attachments')) {
+        obj['attachments'] = ApiClient.convertToType(data['attachments'], [MediaAttachment]);
+      }
+      if (data.hasOwnProperty('submissionDate')) {
+        obj['submissionDate'] = ApiClient.convertToType(data['submissionDate'], 'String');
+      }
+      if (data.hasOwnProperty('studentComment')) {
+        obj['studentComment'] = ApiClient.convertToType(data['studentComment'], 'String');
+      }
+      if (data.hasOwnProperty('returnDate')) {
+        obj['returnDate'] = ApiClient.convertToType(data['returnDate'], 'String');
+      }
+      if (data.hasOwnProperty('returnFeedback')) {
+        obj['returnFeedback'] = ApiClient.convertToType(data['returnFeedback'], 'String');
+      }
+      if (data.hasOwnProperty('returnCreator')) {
+        obj['returnCreator'] = ApiClient.convertToType(data['returnCreator'], 'String');
+      }
+      if (data.hasOwnProperty('googleClassroom')) {
+        obj['googleClassroom'] = GoogleClassroomSubmission.constructFromObject(data['googleClassroom']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Unique identifier of the submission
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * Unique identifier of the classroom where the assignment was posted 
+   * @member {String} classroom
+   */
+  exports.prototype['classroom'] = undefined;
+  /**
+   * Unique identifier of the assignment
+   * @member {String} assignment
+   */
+  exports.prototype['assignment'] = undefined;
+  /**
+   * The User identifier of the student who created the submission
+   * @member {String} creator
+   */
+  exports.prototype['creator'] = undefined;
+  /**
+   * The date when the submission was created
+   * @member {String} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * @member {Array.<module:model/MediaAttachment>} attachments
+   */
+  exports.prototype['attachments'] = undefined;
+  /**
+   * The date when the student submitted his work
+   * @member {String} submissionDate
+   */
+  exports.prototype['submissionDate'] = undefined;
+  /**
+   * An optionnal comment sent by the student when submitting his work 
+   * @member {String} studentComment
+   */
+  exports.prototype['studentComment'] = undefined;
+  /**
+   * The date when the teacher returned the work
+   * @member {String} returnDate
+   */
+  exports.prototype['returnDate'] = undefined;
+  /**
+   * The feedback associated with the return
+   * @member {String} returnFeedback
+   */
+  exports.prototype['returnFeedback'] = undefined;
+  /**
+   * The User unique identifier of the teacher who returned the submission 
+   * @member {String} returnCreator
+   */
+  exports.prototype['returnCreator'] = undefined;
+  /**
+   * @member {module:model/GoogleClassroomSubmission} googleClassroom
+   */
+  exports.prototype['googleClassroom'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./GoogleClassroomSubmission":43,"./MediaAttachment":52}],28:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/ClassAttachmentCreation'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./ClassAttachmentCreation'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.AssignmentSubmissionUpdate = factory(root.FlatApi.ApiClient, root.FlatApi.ClassAttachmentCreation);
+  }
+}(this, function(ApiClient, ClassAttachmentCreation) {
+  'use strict';
+
+
+
+
+  /**
+   * The AssignmentSubmissionUpdate model module.
+   * @module model/AssignmentSubmissionUpdate
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>AssignmentSubmissionUpdate</code>.
+   * Assignment Submission creation
+   * @alias module:model/AssignmentSubmissionUpdate
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>AssignmentSubmissionUpdate</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/AssignmentSubmissionUpdate} obj Optional instance to populate.
+   * @return {module:model/AssignmentSubmissionUpdate} The populated <code>AssignmentSubmissionUpdate</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('attachments')) {
+        obj['attachments'] = ApiClient.convertToType(data['attachments'], [ClassAttachmentCreation]);
+      }
+      if (data.hasOwnProperty('studentComment')) {
+        obj['studentComment'] = ApiClient.convertToType(data['studentComment'], 'String');
+      }
+      if (data.hasOwnProperty('submit')) {
+        obj['submit'] = ApiClient.convertToType(data['submit'], 'Boolean');
+      }
+      if (data.hasOwnProperty('returnFeedback')) {
+        obj['returnFeedback'] = ApiClient.convertToType(data['returnFeedback'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * @member {Array.<module:model/ClassAttachmentCreation>} attachments
+   */
+  exports.prototype['attachments'] = undefined;
+  /**
+   * An optionnal comment sent by the student when submitting his work 
+   * @member {String} studentComment
+   */
+  exports.prototype['studentComment'] = undefined;
+  /**
+   * If `true`, the submission will be marked as done
+   * @member {Boolean} submit
+   */
+  exports.prototype['submit'] = undefined;
+  /**
+   * The feedback associated with the return
+   * @member {String} returnFeedback
+   */
+  exports.prototype['returnFeedback'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./ClassAttachmentCreation":29}],29:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassAttachmentCreation = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassAttachmentCreation model module.
+   * @module model/ClassAttachmentCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassAttachmentCreation</code>.
+   * Attachment creation for an assignment or stream post. This attachment must contain a &#x60;score&#x60; or an &#x60;url&#x60;, all the details of this one will be resolved and returned as &#x60;ClassAttachment&#x60; once the assignment or stream post is created. 
+   * @alias module:model/ClassAttachmentCreation
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassAttachmentCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassAttachmentCreation} obj Optional instance to populate.
+   * @return {module:model/ClassAttachmentCreation} The populated <code>ClassAttachmentCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('type')) {
+        obj['type'] = ApiClient.convertToType(data['type'], 'String');
+      }
+      if (data.hasOwnProperty('score')) {
+        obj['score'] = ApiClient.convertToType(data['score'], 'String');
+      }
+      if (data.hasOwnProperty('url')) {
+        obj['url'] = ApiClient.convertToType(data['url'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The type of the attachment posted
+   * @member {module:model/ClassAttachmentCreation.TypeEnum} type
+   */
+  exports.prototype['type'] = undefined;
+  /**
+   * A unique Flat score identifier. The user creating the assignment must at least have read access to the document. If the user has admin rights, new group permissions will be automatically added for the teachers and students of the class. 
+   * @member {String} score
+   */
+  exports.prototype['score'] = undefined;
+  /**
+   * The URL of the attachment.
+   * @member {String} url
+   */
+  exports.prototype['url'] = undefined;
+
+
+  /**
+   * Allowed values for the <code>type</code> property.
+   * @enum {String}
+   * @readonly
+   */
+  exports.TypeEnum = {
+    /**
+     * value: "flat"
+     * @const
+     */
+    "flat": "flat",
+    /**
+     * value: "link"
+     * @const
+     */
+    "link": "link"  };
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],30:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassCreation = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassCreation model module.
+   * @module model/ClassCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassCreation</code>.
+   * Creation of a classroom
+   * @alias module:model/ClassCreation
+   * @class
+   * @param name {String} The name of the new class
+   */
+  var exports = function(name) {
+    var _this = this;
+
+    _this['name'] = name;
+
+  };
+
+  /**
+   * Constructs a <code>ClassCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassCreation} obj Optional instance to populate.
+   * @return {module:model/ClassCreation} The populated <code>ClassCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('section')) {
+        obj['section'] = ApiClient.convertToType(data['section'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The name of the new class
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * The section of the new class
+   * @member {String} section
+   */
+  exports.prototype['section'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],31:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/ClassDetailsCanvas', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassState', 'model/GroupDetails'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./ClassDetailsCanvas'), require('./ClassDetailsGoogleClassroom'), require('./ClassDetailsGoogleDrive'), require('./ClassDetailsLti'), require('./ClassState'), require('./GroupDetails'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassDetailsCanvas, root.FlatApi.ClassDetailsGoogleClassroom, root.FlatApi.ClassDetailsGoogleDrive, root.FlatApi.ClassDetailsLti, root.FlatApi.ClassState, root.FlatApi.GroupDetails);
+  }
+}(this, function(ApiClient, ClassDetailsCanvas, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassState, GroupDetails) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetails model module.
+   * @module model/ClassDetails
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetails</code>.
+   * A classroom
+   * @alias module:model/ClassDetails
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetails</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetails} obj Optional instance to populate.
+   * @return {module:model/ClassDetails} The populated <code>ClassDetails</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('state')) {
+        obj['state'] = ClassState.constructFromObject(data['state']);
+      }
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('section')) {
+        obj['section'] = ApiClient.convertToType(data['section'], 'String');
+      }
+      if (data.hasOwnProperty('description')) {
+        obj['description'] = ApiClient.convertToType(data['description'], 'String');
+      }
+      if (data.hasOwnProperty('organization')) {
+        obj['organization'] = ApiClient.convertToType(data['organization'], 'String');
+      }
+      if (data.hasOwnProperty('owner')) {
+        obj['owner'] = ApiClient.convertToType(data['owner'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('enrollmentCode')) {
+        obj['enrollmentCode'] = ApiClient.convertToType(data['enrollmentCode'], 'String');
+      }
+      if (data.hasOwnProperty('theme')) {
+        obj['theme'] = ApiClient.convertToType(data['theme'], 'String');
+      }
+      if (data.hasOwnProperty('assignmentsCount')) {
+        obj['assignmentsCount'] = ApiClient.convertToType(data['assignmentsCount'], 'Number');
+      }
+      if (data.hasOwnProperty('studentsGroup')) {
+        obj['studentsGroup'] = GroupDetails.constructFromObject(data['studentsGroup']);
+      }
+      if (data.hasOwnProperty('teachersGroup')) {
+        obj['teachersGroup'] = GroupDetails.constructFromObject(data['teachersGroup']);
+      }
+      if (data.hasOwnProperty('googleClassroom')) {
+        obj['googleClassroom'] = ClassDetailsGoogleClassroom.constructFromObject(data['googleClassroom']);
+      }
+      if (data.hasOwnProperty('googleDrive')) {
+        obj['googleDrive'] = ClassDetailsGoogleDrive.constructFromObject(data['googleDrive']);
+      }
+      if (data.hasOwnProperty('lti')) {
+        obj['lti'] = ClassDetailsLti.constructFromObject(data['lti']);
+      }
+      if (data.hasOwnProperty('canvas')) {
+        obj['canvas'] = ClassDetailsCanvas.constructFromObject(data['canvas']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The unique identifier of the class
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * @member {module:model/ClassState} state
+   */
+  exports.prototype['state'] = undefined;
+  /**
+   * The name of the class
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * The section of the class
+   * @member {String} section
+   */
+  exports.prototype['section'] = undefined;
+  /**
+   * An optionnal description for this class
+   * @member {String} description
+   */
+  exports.prototype['description'] = undefined;
+  /**
+   * The unique identifier of the Organization owning this class
+   * @member {String} organization
+   */
+  exports.prototype['organization'] = undefined;
+  /**
+   * The unique identifier of the User owning this class
+   * @member {String} owner
+   */
+  exports.prototype['owner'] = undefined;
+  /**
+   * The date when the class was create
+   * @member {Date} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * [Teachers only] The enrollment code that can be used by the students to join the class 
+   * @member {String} enrollmentCode
+   */
+  exports.prototype['enrollmentCode'] = undefined;
+  /**
+   * The theme identifier using in Flat User Interface
+   * @member {String} theme
+   */
+  exports.prototype['theme'] = undefined;
+  /**
+   * The number of assignments created in the class
+   * @member {Number} assignmentsCount
+   */
+  exports.prototype['assignmentsCount'] = undefined;
+  /**
+   * @member {module:model/GroupDetails} studentsGroup
+   */
+  exports.prototype['studentsGroup'] = undefined;
+  /**
+   * @member {module:model/GroupDetails} teachersGroup
+   */
+  exports.prototype['teachersGroup'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsGoogleClassroom} googleClassroom
+   */
+  exports.prototype['googleClassroom'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsGoogleDrive} googleDrive
+   */
+  exports.prototype['googleDrive'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsLti} lti
+   */
+  exports.prototype['lti'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsCanvas} canvas
+   */
+  exports.prototype['canvas'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./ClassDetailsCanvas":32,"./ClassDetailsGoogleClassroom":33,"./ClassDetailsGoogleDrive":34,"./ClassDetailsLti":35,"./ClassState":37,"./GroupDetails":45}],32:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetailsCanvas = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetailsCanvas model module.
+   * @module model/ClassDetailsCanvas
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetailsCanvas</code>.
+   * Meta information provided by Canvs LMS
+   * @alias module:model/ClassDetailsCanvas
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetailsCanvas</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetailsCanvas} obj Optional instance to populate.
+   * @return {module:model/ClassDetailsCanvas} The populated <code>ClassDetailsCanvas</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Unique identifier of the course on Canvas
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],33:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetailsGoogleClassroom = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetailsGoogleClassroom model module.
+   * @module model/ClassDetailsGoogleClassroom
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetailsGoogleClassroom</code>.
+   * Google Classroom course-related information
+   * @alias module:model/ClassDetailsGoogleClassroom
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetailsGoogleClassroom</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetailsGoogleClassroom} obj Optional instance to populate.
+   * @return {module:model/ClassDetailsGoogleClassroom} The populated <code>ClassDetailsGoogleClassroom</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('alternateLink')) {
+        obj['alternateLink'] = ApiClient.convertToType(data['alternateLink'], 'String');
+      }
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('section')) {
+        obj['section'] = ApiClient.convertToType(data['section'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The course identifier on Google Classroom
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * Absolute link to this course in the Classroom web UI
+   * @member {String} alternateLink
+   */
+  exports.prototype['alternateLink'] = undefined;
+  /**
+   * The name of the course on Google Classroom
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * The section of the course on Google Classroom
+   * @member {String} section
+   */
+  exports.prototype['section'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],34:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetailsGoogleDrive = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetailsGoogleDrive model module.
+   * @module model/ClassDetailsGoogleDrive
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetailsGoogleDrive</code>.
+   * Google Drive course-related information provided by Google Classroom
+   * @alias module:model/ClassDetailsGoogleDrive
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetailsGoogleDrive</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetailsGoogleDrive} obj Optional instance to populate.
+   * @return {module:model/ClassDetailsGoogleDrive} The populated <code>ClassDetailsGoogleDrive</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('teacherFolderId')) {
+        obj['teacherFolderId'] = ApiClient.convertToType(data['teacherFolderId'], 'String');
+      }
+      if (data.hasOwnProperty('teacherFolderAlternateLink')) {
+        obj['teacherFolderAlternateLink'] = ApiClient.convertToType(data['teacherFolderAlternateLink'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * [Teachers only] The Drive directory identifier of the teachers' folder 
+   * @member {String} teacherFolderId
+   */
+  exports.prototype['teacherFolderId'] = undefined;
+  /**
+   * [Teachers only] The Drive URL of the teachers' folder 
+   * @member {String} teacherFolderAlternateLink
+   */
+  exports.prototype['teacherFolderAlternateLink'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],35:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetailsLti = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetailsLti model module.
+   * @module model/ClassDetailsLti
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetailsLti</code>.
+   * Meta information provided by the LTI consumer
+   * @alias module:model/ClassDetailsLti
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetailsLti</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetailsLti} obj Optional instance to populate.
+   * @return {module:model/ClassDetailsLti} The populated <code>ClassDetailsLti</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('contextId')) {
+        obj['contextId'] = ApiClient.convertToType(data['contextId'], 'String');
+      }
+      if (data.hasOwnProperty('contextTitle')) {
+        obj['contextTitle'] = ApiClient.convertToType(data['contextTitle'], 'String');
+      }
+      if (data.hasOwnProperty('contextLabel')) {
+        obj['contextLabel'] = ApiClient.convertToType(data['contextLabel'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Unique context identifier provided
+   * @member {String} contextId
+   */
+  exports.prototype['contextId'] = undefined;
+  /**
+   * Context title
+   * @member {String} contextTitle
+   */
+  exports.prototype['contextTitle'] = undefined;
+  /**
+   * Context label
+   * @member {String} contextLabel
+   */
+  exports.prototype['contextLabel'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],36:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -5948,16 +9744,251 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],18:[function(require,module,exports){
+},{"../ApiClient":16}],37:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassState = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class ClassState.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "active"
+     * @const
+     */
+    "active": "active",
+    /**
+     * value: "archived"
+     * @const
+     */
+    "archived": "archived"  };
+
+  /**
+   * Returns a <code>ClassState</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/ClassState} The enum <code>ClassState</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],38:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassStreamPostMode = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class ClassStreamPostMode.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "everybodyCanPost"
+     * @const
+     */
+    "everybodyCanPost": "everybodyCanPost",
+    /**
+     * value: "everybodyCanComment"
+     * @const
+     */
+    "everybodyCanComment": "everybodyCanComment",
+    /**
+     * value: "teachersCanPost"
+     * @const
+     */
+    "teachersCanPost": "teachersCanPost"  };
+
+  /**
+   * Returns a <code>ClassStreamPostMode</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/ClassStreamPostMode} The enum <code>ClassStreamPostMode</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],39:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassUpdate = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassUpdate model module.
+   * @module model/ClassUpdate
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassUpdate</code>.
+   * Update of a classroom
+   * @alias module:model/ClassUpdate
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassUpdate</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassUpdate} obj Optional instance to populate.
+   * @return {module:model/ClassUpdate} The populated <code>ClassUpdate</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('section')) {
+        obj['section'] = ApiClient.convertToType(data['section'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The name of the class
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * The section of the class
+   * @member {String} section
+   */
+  exports.prototype['section'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],40:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -5985,7 +10016,7 @@ module.exports = request;
   /**
    * The FlatErrorResponse model module.
    * @module model/FlatErrorResponse
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -6057,16 +10088,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],19:[function(require,module,exports){
+},{"../ApiClient":16}],41:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6145,16 +10179,227 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],20:[function(require,module,exports){
+},{"../ApiClient":16}],42:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.GoogleClassroomCoursework = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The GoogleClassroomCoursework model module.
+   * @module model/GoogleClassroomCoursework
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>GoogleClassroomCoursework</code>.
+   * A coursework on Google Classroom
+   * @alias module:model/GoogleClassroomCoursework
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>GoogleClassroomCoursework</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/GoogleClassroomCoursework} obj Optional instance to populate.
+   * @return {module:model/GoogleClassroomCoursework} The populated <code>GoogleClassroomCoursework</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('state')) {
+        obj['state'] = ApiClient.convertToType(data['state'], 'String');
+      }
+      if (data.hasOwnProperty('alternateLink')) {
+        obj['alternateLink'] = ApiClient.convertToType(data['alternateLink'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Identifier of the coursework assigned by Classroom
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * State of the coursework
+   * @member {String} state
+   */
+  exports.prototype['state'] = undefined;
+  /**
+   * Absolute link to this coursework in the Classroom web UI
+   * @member {String} alternateLink
+   */
+  exports.prototype['alternateLink'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],43:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.GoogleClassroomSubmission = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The GoogleClassroomSubmission model module.
+   * @module model/GoogleClassroomSubmission
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>GoogleClassroomSubmission</code>.
+   * A coursework submission on Google Classroom
+   * @alias module:model/GoogleClassroomSubmission
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>GoogleClassroomSubmission</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/GoogleClassroomSubmission} obj Optional instance to populate.
+   * @return {module:model/GoogleClassroomSubmission} The populated <code>GoogleClassroomSubmission</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('state')) {
+        obj['state'] = ApiClient.convertToType(data['state'], 'String');
+      }
+      if (data.hasOwnProperty('alternateLink')) {
+        obj['alternateLink'] = ApiClient.convertToType(data['alternateLink'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Identifier of the coursework submission assigned by Classroom
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * State of the submission on Google Classroom
+   * @member {String} state
+   */
+  exports.prototype['state'] = undefined;
+  /**
+   * Absolute link to this coursework in the Classroom web UI
+   * @member {String} alternateLink
+   */
+  exports.prototype['alternateLink'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],44:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6182,7 +10427,7 @@ module.exports = request;
   /**
    * The Group model module.
    * @module model/Group
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -6304,16 +10549,1267 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],21:[function(require,module,exports){
+},{"../ApiClient":16}],45:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/GroupType'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./GroupType'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.GroupDetails = factory(root.FlatApi.ApiClient, root.FlatApi.GroupType);
+  }
+}(this, function(ApiClient, GroupType) {
+  'use strict';
+
+
+
+
+  /**
+   * The GroupDetails model module.
+   * @module model/GroupDetails
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>GroupDetails</code>.
+   * The details of a group
+   * @alias module:model/GroupDetails
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>GroupDetails</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/GroupDetails} obj Optional instance to populate.
+   * @return {module:model/GroupDetails} The populated <code>GroupDetails</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('type')) {
+        obj['type'] = GroupType.constructFromObject(data['type']);
+      }
+      if (data.hasOwnProperty('organization')) {
+        obj['organization'] = ApiClient.convertToType(data['organization'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('usersCount')) {
+        obj['usersCount'] = ApiClient.convertToType(data['usersCount'], 'Number');
+      }
+      if (data.hasOwnProperty('readOnly')) {
+        obj['readOnly'] = ApiClient.convertToType(data['readOnly'], 'Boolean');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The unique identifier of the group
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The displayable name of the group
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * @member {module:model/GroupType} type
+   */
+  exports.prototype['type'] = undefined;
+  /**
+   * The unique identifier of the Organization owning the group
+   * @member {String} organization
+   */
+  exports.prototype['organization'] = undefined;
+  /**
+   * The date when the group was create
+   * @member {Date} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * The number of students in this group
+   * @member {Number} usersCount
+   */
+  exports.prototype['usersCount'] = undefined;
+  /**
+   * `true` if the properties and members of this group are in in read-only 
+   * @member {Boolean} readOnly
+   */
+  exports.prototype['readOnly'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./GroupType":46}],46:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.GroupType = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class GroupType.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "generic"
+     * @const
+     */
+    "generic": "generic",
+    /**
+     * value: "classTeachers"
+     * @const
+     */
+    "classTeachers": "classTeachers",
+    /**
+     * value: "classStudents"
+     * @const
+     */
+    "classStudents": "classStudents"  };
+
+  /**
+   * Returns a <code>GroupType</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/GroupType} The enum <code>GroupType</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],47:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.LicenseMode = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class LicenseMode.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "credit"
+     * @const
+     */
+    "credit": "credit",
+    /**
+     * value: "site"
+     * @const
+     */
+    "site": "site"  };
+
+  /**
+   * Returns a <code>LicenseMode</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/LicenseMode} The enum <code>LicenseMode</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],48:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.LicenseSources = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class LicenseSources.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "order"
+     * @const
+     */
+    "order": "order",
+    /**
+     * value: "trial"
+     * @const
+     */
+    "trial": "trial",
+    /**
+     * value: "voucher"
+     * @const
+     */
+    "voucher": "voucher",
+    /**
+     * value: "distributor"
+     * @const
+     */
+    "distributor": "distributor",
+    /**
+     * value: "subscription"
+     * @const
+     */
+    "subscription": "subscription"  };
+
+  /**
+   * Returns a <code>LicenseSources</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/LicenseSources} The enum <code>LicenseSources</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],49:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.LmsName = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class LmsName.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "canvas"
+     * @const
+     */
+    "canvas": "canvas",
+    /**
+     * value: "moodle"
+     * @const
+     */
+    "moodle": "moodle",
+    /**
+     * value: "schoology"
+     * @const
+     */
+    "schoology": "schoology",
+    /**
+     * value: "blackboard"
+     * @const
+     */
+    "blackboard": "blackboard",
+    /**
+     * value: "desire2learn"
+     * @const
+     */
+    "desire2learn": "desire2learn",
+    /**
+     * value: "sakai"
+     * @const
+     */
+    "sakai": "sakai",
+    /**
+     * value: "other"
+     * @const
+     */
+    "other": "other"  };
+
+  /**
+   * Returns a <code>LmsName</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/LmsName} The enum <code>LmsName</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],50:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/LmsName'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./LmsName'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.LtiCredentials = factory(root.FlatApi.ApiClient, root.FlatApi.LmsName);
+  }
+}(this, function(ApiClient, LmsName) {
+  'use strict';
+
+
+
+
+  /**
+   * The LtiCredentials model module.
+   * @module model/LtiCredentials
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>LtiCredentials</code>.
+   * A couple of LTI 1.x OAuth credentials
+   * @alias module:model/LtiCredentials
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>LtiCredentials</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/LtiCredentials} obj Optional instance to populate.
+   * @return {module:model/LtiCredentials} The populated <code>LtiCredentials</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('lms')) {
+        obj['lms'] = LmsName.constructFromObject(data['lms']);
+      }
+      if (data.hasOwnProperty('organization')) {
+        obj['organization'] = ApiClient.convertToType(data['organization'], 'String');
+      }
+      if (data.hasOwnProperty('creator')) {
+        obj['creator'] = ApiClient.convertToType(data['creator'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('lastUsage')) {
+        obj['lastUsage'] = ApiClient.convertToType(data['lastUsage'], 'Date');
+      }
+      if (data.hasOwnProperty('consumerKey')) {
+        obj['consumerKey'] = ApiClient.convertToType(data['consumerKey'], 'String');
+      }
+      if (data.hasOwnProperty('consumerSecret')) {
+        obj['consumerSecret'] = ApiClient.convertToType(data['consumerSecret'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The unique identifier of this couple of credentials
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * Name of the couple of credentials
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * @member {module:model/LmsName} lms
+   */
+  exports.prototype['lms'] = undefined;
+  /**
+   * The unique identifier of the Organization associated to these credentials
+   * @member {String} organization
+   */
+  exports.prototype['organization'] = undefined;
+  /**
+   * Unique identifier of the user who created these credentials
+   * @member {String} creator
+   */
+  exports.prototype['creator'] = undefined;
+  /**
+   * The creation date of thse credentials
+   * @member {Date} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * The last time these credentials were used
+   * @member {Date} lastUsage
+   */
+  exports.prototype['lastUsage'] = undefined;
+  /**
+   * OAuth 1 Consumer Key
+   * @member {String} consumerKey
+   */
+  exports.prototype['consumerKey'] = undefined;
+  /**
+   * OAuth 1 Consumer Secret
+   * @member {String} consumerSecret
+   */
+  exports.prototype['consumerSecret'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./LmsName":49}],51:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/LmsName'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./LmsName'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.LtiCredentialsCreation = factory(root.FlatApi.ApiClient, root.FlatApi.LmsName);
+  }
+}(this, function(ApiClient, LmsName) {
+  'use strict';
+
+
+
+
+  /**
+   * The LtiCredentialsCreation model module.
+   * @module model/LtiCredentialsCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>LtiCredentialsCreation</code>.
+   * Creation of a couple of LTI 1.x OAuth credentials
+   * @alias module:model/LtiCredentialsCreation
+   * @class
+   * @param name {String} Name of the couple of credentials
+   * @param lms {module:model/LmsName} 
+   */
+  var exports = function(name, lms) {
+    var _this = this;
+
+    _this['name'] = name;
+    _this['lms'] = lms;
+  };
+
+  /**
+   * Constructs a <code>LtiCredentialsCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/LtiCredentialsCreation} obj Optional instance to populate.
+   * @return {module:model/LtiCredentialsCreation} The populated <code>LtiCredentialsCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('lms')) {
+        obj['lms'] = LmsName.constructFromObject(data['lms']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Name of the couple of credentials
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * @member {module:model/LmsName} lms
+   */
+  exports.prototype['lms'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./LmsName":49}],52:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/MediaScoreSharingMode'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./MediaScoreSharingMode'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.MediaAttachment = factory(root.FlatApi.ApiClient, root.FlatApi.MediaScoreSharingMode);
+  }
+}(this, function(ApiClient, MediaScoreSharingMode) {
+  'use strict';
+
+
+
+
+  /**
+   * The MediaAttachment model module.
+   * @module model/MediaAttachment
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>MediaAttachment</code>.
+   * Media attachment. The API will automatically resolve the details, oEmbed, and media available if possible and return them in this object 
+   * @alias module:model/MediaAttachment
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>MediaAttachment</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/MediaAttachment} obj Optional instance to populate.
+   * @return {module:model/MediaAttachment} The populated <code>MediaAttachment</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('type')) {
+        obj['type'] = ApiClient.convertToType(data['type'], 'String');
+      }
+      if (data.hasOwnProperty('score')) {
+        obj['score'] = ApiClient.convertToType(data['score'], 'String');
+      }
+      if (data.hasOwnProperty('revision')) {
+        obj['revision'] = ApiClient.convertToType(data['revision'], 'String');
+      }
+      if (data.hasOwnProperty('sharingMode')) {
+        obj['sharingMode'] = MediaScoreSharingMode.constructFromObject(data['sharingMode']);
+      }
+      if (data.hasOwnProperty('title')) {
+        obj['title'] = ApiClient.convertToType(data['title'], 'String');
+      }
+      if (data.hasOwnProperty('description')) {
+        obj['description'] = ApiClient.convertToType(data['description'], 'String');
+      }
+      if (data.hasOwnProperty('html')) {
+        obj['html'] = ApiClient.convertToType(data['html'], 'String');
+      }
+      if (data.hasOwnProperty('htmlWidth')) {
+        obj['htmlWidth'] = ApiClient.convertToType(data['htmlWidth'], 'String');
+      }
+      if (data.hasOwnProperty('htmlHeight')) {
+        obj['htmlHeight'] = ApiClient.convertToType(data['htmlHeight'], 'String');
+      }
+      if (data.hasOwnProperty('url')) {
+        obj['url'] = ApiClient.convertToType(data['url'], 'String');
+      }
+      if (data.hasOwnProperty('thumbnailUrl')) {
+        obj['thumbnailUrl'] = ApiClient.convertToType(data['thumbnailUrl'], 'String');
+      }
+      if (data.hasOwnProperty('thumbnailWidth')) {
+        obj['thumbnailWidth'] = ApiClient.convertToType(data['thumbnailWidth'], 'String');
+      }
+      if (data.hasOwnProperty('thumbnailHeight')) {
+        obj['thumbnailHeight'] = ApiClient.convertToType(data['thumbnailHeight'], 'String');
+      }
+      if (data.hasOwnProperty('authorName')) {
+        obj['authorName'] = ApiClient.convertToType(data['authorName'], 'String');
+      }
+      if (data.hasOwnProperty('authorUrl')) {
+        obj['authorUrl'] = ApiClient.convertToType(data['authorUrl'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The type of the assignment resolved: * `rich`, `photo`, `video` are attachment types that are automatically resolved from a `link` attachment. * A `flat` attachment is a score document where the unique identifier will be specified in the `score` property. Its sharing mode will be provided in the `sharingMode` property. 
+   * @member {module:model/MediaAttachment.TypeEnum} type
+   */
+  exports.prototype['type'] = undefined;
+  /**
+   * An unique Flat score identifier
+   * @member {String} score
+   */
+  exports.prototype['score'] = undefined;
+  /**
+   * An unique revision identifier of a score
+   * @member {String} revision
+   */
+  exports.prototype['revision'] = undefined;
+  /**
+   * @member {module:model/MediaScoreSharingMode} sharingMode
+   */
+  exports.prototype['sharingMode'] = undefined;
+  /**
+   * The resolved title of the attachment
+   * @member {String} title
+   */
+  exports.prototype['title'] = undefined;
+  /**
+   * The resolved description of the attachment
+   * @member {String} description
+   */
+  exports.prototype['description'] = undefined;
+  /**
+   * If the attachment type is `rich` or `video`, the HTML code of the media to display 
+   * @member {String} html
+   */
+  exports.prototype['html'] = undefined;
+  /**
+   * If the `html` is available, the width of the widget
+   * @member {String} htmlWidth
+   */
+  exports.prototype['htmlWidth'] = undefined;
+  /**
+   * If the `html` is available, the height of the widget
+   * @member {String} htmlHeight
+   */
+  exports.prototype['htmlHeight'] = undefined;
+  /**
+   * The url of the attachment
+   * @member {String} url
+   */
+  exports.prototype['url'] = undefined;
+  /**
+   * If the attachment type is `rich`, `video`, `photo` or `link`, a displayable thumbnail for this attachment 
+   * @member {String} thumbnailUrl
+   */
+  exports.prototype['thumbnailUrl'] = undefined;
+  /**
+   * If the `thumbnailUrl` is available, the width of the thumbnail 
+   * @member {String} thumbnailWidth
+   */
+  exports.prototype['thumbnailWidth'] = undefined;
+  /**
+   * If the `thumbnailUrl` is available, the width of the thumbnail 
+   * @member {String} thumbnailHeight
+   */
+  exports.prototype['thumbnailHeight'] = undefined;
+  /**
+   * The resolved author name of the attachment
+   * @member {String} authorName
+   */
+  exports.prototype['authorName'] = undefined;
+  /**
+   * The resolved author url of the attachment
+   * @member {String} authorUrl
+   */
+  exports.prototype['authorUrl'] = undefined;
+
+
+  /**
+   * Allowed values for the <code>type</code> property.
+   * @enum {String}
+   * @readonly
+   */
+  exports.TypeEnum = {
+    /**
+     * value: "rich"
+     * @const
+     */
+    "rich": "rich",
+    /**
+     * value: "photo"
+     * @const
+     */
+    "photo": "photo",
+    /**
+     * value: "video"
+     * @const
+     */
+    "video": "video",
+    /**
+     * value: "link"
+     * @const
+     */
+    "link": "link",
+    /**
+     * value: "flat"
+     * @const
+     */
+    "flat": "flat"  };
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./MediaScoreSharingMode":53}],53:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.MediaScoreSharingMode = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class MediaScoreSharingMode.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "read"
+     * @const
+     */
+    "read": "read",
+    /**
+     * value: "write"
+     * @const
+     */
+    "write": "write",
+    /**
+     * value: "copy"
+     * @const
+     */
+    "copy": "copy"  };
+
+  /**
+   * Returns a <code>MediaScoreSharingMode</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/MediaScoreSharingMode} The enum <code>MediaScoreSharingMode</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],54:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/OrganizationRoles'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./OrganizationRoles'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.OrganizationInvitation = factory(root.FlatApi.ApiClient, root.FlatApi.OrganizationRoles);
+  }
+}(this, function(ApiClient, OrganizationRoles) {
+  'use strict';
+
+
+
+
+  /**
+   * The OrganizationInvitation model module.
+   * @module model/OrganizationInvitation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>OrganizationInvitation</code>.
+   * Details of an invitation to join an organization
+   * @alias module:model/OrganizationInvitation
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>OrganizationInvitation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/OrganizationInvitation} obj Optional instance to populate.
+   * @return {module:model/OrganizationInvitation} The populated <code>OrganizationInvitation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('organization')) {
+        obj['organization'] = ApiClient.convertToType(data['organization'], 'String');
+      }
+      if (data.hasOwnProperty('organizationRole')) {
+        obj['organizationRole'] = OrganizationRoles.constructFromObject(data['organizationRole']);
+      }
+      if (data.hasOwnProperty('customCode')) {
+        obj['customCode'] = ApiClient.convertToType(data['customCode'], 'String');
+      }
+      if (data.hasOwnProperty('email')) {
+        obj['email'] = ApiClient.convertToType(data['email'], 'String');
+      }
+      if (data.hasOwnProperty('invitedBy')) {
+        obj['invitedBy'] = ApiClient.convertToType(data['invitedBy'], 'String');
+      }
+      if (data.hasOwnProperty('usedBy')) {
+        obj['usedBy'] = ApiClient.convertToType(data['usedBy'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The invitation unique identifier
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The unique identifier of the Organization owning this class
+   * @member {String} organization
+   */
+  exports.prototype['organization'] = undefined;
+  /**
+   * @member {module:model/OrganizationRoles} organizationRole
+   */
+  exports.prototype['organizationRole'] = undefined;
+  /**
+   * Enrollment code to use when joining this organization
+   * @member {String} customCode
+   */
+  exports.prototype['customCode'] = undefined;
+  /**
+   * The email address this invitation was sent to
+   * @member {String} email
+   */
+  exports.prototype['email'] = undefined;
+  /**
+   * The unique identifier of the User who created this invitation
+   * @member {String} invitedBy
+   */
+  exports.prototype['invitedBy'] = undefined;
+  /**
+   * The unique identifier of the User who used this invitation
+   * @member {String} usedBy
+   */
+  exports.prototype['usedBy'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./OrganizationRoles":56}],55:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/OrganizationRoles'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./OrganizationRoles'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.OrganizationInvitationCreation = factory(root.FlatApi.ApiClient, root.FlatApi.OrganizationRoles);
+  }
+}(this, function(ApiClient, OrganizationRoles) {
+  'use strict';
+
+
+
+
+  /**
+   * The OrganizationInvitationCreation model module.
+   * @module model/OrganizationInvitationCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>OrganizationInvitationCreation</code>.
+   * The parameters to create an organization invitation
+   * @alias module:model/OrganizationInvitationCreation
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+  };
+
+  /**
+   * Constructs a <code>OrganizationInvitationCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/OrganizationInvitationCreation} obj Optional instance to populate.
+   * @return {module:model/OrganizationInvitationCreation} The populated <code>OrganizationInvitationCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('email')) {
+        obj['email'] = ApiClient.convertToType(data['email'], 'String');
+      }
+      if (data.hasOwnProperty('organizationRole')) {
+        obj['organizationRole'] = OrganizationRoles.constructFromObject(data['organizationRole']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The email address you want to send the invitation to
+   * @member {String} email
+   */
+  exports.prototype['email'] = undefined;
+  /**
+   * @member {module:model/OrganizationRoles} organizationRole
+   */
+  exports.prototype['organizationRole'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./OrganizationRoles":56}],56:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6377,16 +11873,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],22:[function(require,module,exports){
+},{"../ApiClient":16}],57:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6414,7 +11913,7 @@ module.exports = request;
   /**
    * The ScoreCollaborator model module.
    * @module model/ScoreCollaborator
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -6524,16 +12023,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11,"./Group":20,"./UserPublic":46}],23:[function(require,module,exports){
+},{"../ApiClient":16,"./Group":44,"./UserPublic":84}],58:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6561,7 +12063,7 @@ module.exports = request;
   /**
    * The ScoreCollaboratorCreation model module.
    * @module model/ScoreCollaboratorCreation
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -6655,16 +12157,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],24:[function(require,module,exports){
+},{"../ApiClient":16}],59:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6692,7 +12197,7 @@ module.exports = request;
   /**
    * The ScoreComment model module.
    * @module model/ScoreComment
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -6880,16 +12385,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11,"./ScoreCommentContext":25}],25:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreCommentContext":60}],60:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -6917,7 +12425,7 @@ module.exports = request;
   /**
    * The ScoreCommentContext model module.
    * @module model/ScoreCommentContext
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7020,16 +12528,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],26:[function(require,module,exports){
+},{"../ApiClient":16}],61:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7057,7 +12568,7 @@ module.exports = request;
   /**
    * The ScoreCommentCreation model module.
    * @module model/ScoreCommentCreation
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7148,16 +12659,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11,"./ScoreCommentContext":25}],27:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreCommentContext":60}],62:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7185,7 +12699,7 @@ module.exports = request;
   /**
    * The ScoreCommentUpdate model module.
    * @module model/ScoreCommentUpdate
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7257,16 +12771,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11,"./ScoreCommentContext":25}],28:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreCommentContext":60}],63:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7294,7 +12811,7 @@ module.exports = request;
   /**
    * The ScoreCommentsCounts model module.
    * @module model/ScoreCommentsCounts
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7367,16 +12884,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],29:[function(require,module,exports){
+},{"../ApiClient":16}],64:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7404,7 +12924,7 @@ module.exports = request;
   /**
    * The ScoreCreation model module.
    * @module model/ScoreCreation
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7492,16 +13012,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11,"./ScoreData":30,"./ScoreDataEncoding":31,"./ScorePrivacy":36,"./ScoreSource":41}],30:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreData":65,"./ScoreDataEncoding":66,"./ScorePrivacy":71,"./ScoreSource":76}],65:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7529,7 +13052,7 @@ module.exports = request;
   /**
    * The ScoreData model module.
    * @module model/ScoreData
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7566,16 +13089,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],31:[function(require,module,exports){
+},{"../ApiClient":16}],66:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7624,16 +13150,19 @@ module.exports = request;
 
 
 
-},{"../ApiClient":11}],32:[function(require,module,exports){
+},{"../ApiClient":16}],67:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7661,7 +13190,7 @@ module.exports = request;
   /**
    * The ScoreDetails model module.
    * @module model/ScoreDetails
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7831,16 +13360,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ScoreCollaborator":22,"./ScoreCommentsCounts":28,"./ScoreLikesCounts":34,"./ScorePrivacy":36,"./ScoreRights":40,"./ScoreSummary":42,"./ScoreViewsCounts":43,"./UserPublicSummary":47}],33:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreCollaborator":57,"./ScoreCommentsCounts":63,"./ScoreLikesCounts":69,"./ScorePrivacy":71,"./ScoreRights":75,"./ScoreSummary":77,"./ScoreViewsCounts":78,"./UserPublicSummary":85}],68:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7868,7 +13400,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreFork model module.
    * @module model/ScoreFork
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -7905,16 +13437,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],34:[function(require,module,exports){
+},{"../ApiClient":16}],69:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -7942,7 +13477,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreLikesCounts model module.
    * @module model/ScoreLikesCounts
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8006,16 +13541,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],35:[function(require,module,exports){
+},{"../ApiClient":16}],70:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8043,7 +13581,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreModification model module.
    * @module model/ScoreModification
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8106,16 +13644,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ScorePrivacy":36}],36:[function(require,module,exports){
+},{"../ApiClient":16,"./ScorePrivacy":71}],71:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8179,16 +13720,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],37:[function(require,module,exports){
+},{"../ApiClient":16}],72:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8216,7 +13760,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreRevision model module.
    * @module model/ScoreRevision
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8314,16 +13858,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ScoreRevisionStatistics":39}],38:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreRevisionStatistics":74}],73:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8351,7 +13898,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreRevisionCreation model module.
    * @module model/ScoreRevisionCreation
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8423,16 +13970,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ScoreData":30,"./ScoreDataEncoding":31}],39:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreData":65,"./ScoreDataEncoding":66}],74:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8460,7 +14010,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreRevisionStatistics model module.
    * @module model/ScoreRevisionStatistics
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8515,16 +14065,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],40:[function(require,module,exports){
+},{"../ApiClient":16}],75:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8552,7 +14105,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreRights model module.
    * @module model/ScoreRights
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8609,16 +14162,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],41:[function(require,module,exports){
+},{"../ApiClient":16}],76:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8646,7 +14202,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreSource model module.
    * @module model/ScoreSource
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8691,16 +14247,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],42:[function(require,module,exports){
+},{"../ApiClient":16}],77:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8728,7 +14287,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreSummary model module.
    * @module model/ScoreSummary
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8817,16 +14376,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ScorePrivacy":36,"./UserPublicSummary":47}],43:[function(require,module,exports){
+},{"../ApiClient":16,"./ScorePrivacy":71,"./UserPublicSummary":85}],78:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8854,7 +14416,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The ScoreViewsCounts model module.
    * @module model/ScoreViewsCounts
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -8918,16 +14480,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],44:[function(require,module,exports){
+},{"../ApiClient":16}],79:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -8955,7 +14520,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The UserBasics model module.
    * @module model/UserBasics
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -9045,16 +14610,133 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11}],45:[function(require,module,exports){
+},{"../ApiClient":16}],80:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/FlatLocales'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./FlatLocales'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.UserCreation = factory(root.FlatApi.ApiClient, root.FlatApi.FlatLocales);
+  }
+}(this, function(ApiClient, FlatLocales) {
+  'use strict';
+
+
+
+
+  /**
+   * The UserCreation model module.
+   * @module model/UserCreation
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>UserCreation</code>.
+   * User creation
+   * @alias module:model/UserCreation
+   * @class
+   * @param username {String} Username of the new account
+   * @param password {String} Password of the new account
+   */
+  var exports = function(username, password) {
+    var _this = this;
+
+    _this['username'] = username;
+
+    _this['password'] = password;
+
+  };
+
+  /**
+   * Constructs a <code>UserCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/UserCreation} obj Optional instance to populate.
+   * @return {module:model/UserCreation} The populated <code>UserCreation</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('username')) {
+        obj['username'] = ApiClient.convertToType(data['username'], 'String');
+      }
+      if (data.hasOwnProperty('email')) {
+        obj['email'] = ApiClient.convertToType(data['email'], 'String');
+      }
+      if (data.hasOwnProperty('password')) {
+        obj['password'] = ApiClient.convertToType(data['password'], 'String');
+      }
+      if (data.hasOwnProperty('locale')) {
+        obj['locale'] = FlatLocales.constructFromObject(data['locale']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Username of the new account
+   * @member {String} username
+   */
+  exports.prototype['username'] = undefined;
+  /**
+   * Email of the new account
+   * @member {String} email
+   */
+  exports.prototype['email'] = undefined;
+  /**
+   * Password of the new account
+   * @member {String} password
+   */
+  exports.prototype['password'] = undefined;
+  /**
+   * @member {module:model/FlatLocales} locale
+   */
+  exports.prototype['locale'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./FlatLocales":41}],81:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -9082,7 +14764,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The UserDetails model module.
    * @module model/UserDetails
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -9175,16 +14857,246 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ClassRoles":17,"./FlatLocales":19,"./OrganizationRoles":21,"./UserPublic":46}],46:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassRoles":36,"./FlatLocales":41,"./OrganizationRoles":56,"./UserPublic":84}],82:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/ClassRoles', 'model/OrganizationRoles', 'model/UserDetailsAdminLicense', 'model/UserPublicSummary'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./OrganizationRoles'), require('./UserDetailsAdminLicense'), require('./UserPublicSummary'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.UserDetailsAdmin = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.OrganizationRoles, root.FlatApi.UserDetailsAdminLicense, root.FlatApi.UserPublicSummary);
+  }
+}(this, function(ApiClient, ClassRoles, OrganizationRoles, UserDetailsAdminLicense, UserPublicSummary) {
+  'use strict';
+
+
+
+
+  /**
+   * The UserDetailsAdmin model module.
+   * @module model/UserDetailsAdmin
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>UserDetailsAdmin</code>.
+   * User details (view for organization teacher / admin)
+   * @alias module:model/UserDetailsAdmin
+   * @class
+   * @extends module:model/UserPublicSummary
+   */
+  var exports = function() {
+    var _this = this;
+    UserPublicSummary.call(_this);
+
+
+
+  };
+
+  /**
+   * Constructs a <code>UserDetailsAdmin</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/UserDetailsAdmin} obj Optional instance to populate.
+   * @return {module:model/UserDetailsAdmin} The populated <code>UserDetailsAdmin</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      UserPublicSummary.constructFromObject(data, obj);
+      if (data.hasOwnProperty('email')) {
+        obj['email'] = ApiClient.convertToType(data['email'], 'String');
+      }
+      if (data.hasOwnProperty('lastActivityDate')) {
+        obj['lastActivityDate'] = ApiClient.convertToType(data['lastActivityDate'], 'Date');
+      }
+      if (data.hasOwnProperty('license')) {
+        obj['license'] = UserDetailsAdminLicense.constructFromObject(data['license']);
+      }
+    }
+    return obj;
+  }
+
+  exports.prototype = Object.create(UserPublicSummary.prototype);
+  exports.prototype.constructor = exports;
+
+  /**
+   * Email of the user
+   * @member {String} email
+   */
+  exports.prototype['email'] = undefined;
+  /**
+   * Date of the last user activity
+   * @member {Date} lastActivityDate
+   */
+  exports.prototype['lastActivityDate'] = undefined;
+  /**
+   * @member {module:model/UserDetailsAdminLicense} license
+   */
+  exports.prototype['license'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserDetailsAdminLicense":83,"./UserPublicSummary":85}],83:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/LicenseMode', 'model/LicenseSources'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./LicenseMode'), require('./LicenseSources'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.UserDetailsAdminLicense = factory(root.FlatApi.ApiClient, root.FlatApi.LicenseMode, root.FlatApi.LicenseSources);
+  }
+}(this, function(ApiClient, LicenseMode, LicenseSources) {
+  'use strict';
+
+
+
+
+  /**
+   * The UserDetailsAdminLicense model module.
+   * @module model/UserDetailsAdminLicense
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>UserDetailsAdminLicense</code>.
+   * Current active license of the user
+   * @alias module:model/UserDetailsAdminLicense
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>UserDetailsAdminLicense</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/UserDetailsAdminLicense} obj Optional instance to populate.
+   * @return {module:model/UserDetailsAdminLicense} The populated <code>UserDetailsAdminLicense</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('expirationDate')) {
+        obj['expirationDate'] = ApiClient.convertToType(data['expirationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('source')) {
+        obj['source'] = LicenseSources.constructFromObject(data['source']);
+      }
+      if (data.hasOwnProperty('mode')) {
+        obj['mode'] = LicenseMode.constructFromObject(data['mode']);
+      }
+      if (data.hasOwnProperty('active')) {
+        obj['active'] = ApiClient.convertToType(data['active'], 'Boolean');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * ID of the current license
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * Date when the license expires
+   * @member {Date} expirationDate
+   */
+  exports.prototype['expirationDate'] = undefined;
+  /**
+   * @member {module:model/LicenseSources} source
+   */
+  exports.prototype['source'] = undefined;
+  /**
+   * @member {module:model/LicenseMode} mode
+   */
+  exports.prototype['mode'] = undefined;
+  /**
+   * ID of the current license
+   * @member {Boolean} active
+   */
+  exports.prototype['active'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./LicenseMode":47,"./LicenseSources":48}],84:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -9212,7 +15124,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The UserPublic model module.
    * @module model/UserPublic
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -9307,16 +15219,19 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ClassRoles":17,"./OrganizationRoles":21,"./UserPublicSummary":47}],47:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserPublicSummary":85}],85:[function(require,module,exports){
 /**
  * Flat API
- * # Introduction The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:     - Creating and importing new music scores using MusicXML or MIDI files    - Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI)    - Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  # Beta Please note that this public API is currently in beta and subject to change.  Our whole platform and apps are based on this API, however not all the endpoints are available publicly yet. Feel free to [contact us](mailto:developers@flat.io) if you have any questions, feedback or features requests.  We don't offer any guarantees during this beta period. By using this API, you agree to update your app in a timely fashion in response to any beta-period changes that are rolled out.  By using this API, and especially on the behalf of a user account, you must accept, respect and enforce our [Terms of Service and Privacy Policy](https://flat.io/legal).  # SDKs  Our team maintains the following SDKs:   - [Python](https://github.com/FlatIO/api-client-python)   - [JavaScript (Node.js and Browser)](https://github.com/FlatIO/api-client-js)   - [PHP](https://github.com/FlatIO/api-client-php)  # Authentication The Flat API supports OAuth2, you can request API credentials [on our website](https://flat.io/developers). We provide two types of credentials:    - **Account Access Tokens**: Simple access tokens that allow to try and use this API **with your own account**. This is a great solution to create private apps.   - **OAuth2 Credentials**: If you plan to use the Flat API **on the behalf of mutliple users** or make this app public, request OAuth2 Credentials.  <!-- ReDoc-Inject: <security-definitions> -->  ### OAuth2 Authorization page  The Authorization page (`https://flat.io/auth/oauth`) supports all the standard parameters from the **Authorization Code** flow ([RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and the **Implicit** flow ([RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). Here is a summary of the parameters available, including non-standard and optional parameters. All of them can be passed as query string when redirecting the end-user to the authorization page.  Property name  | Required | Values and Description ---------------|----------|----------------------- `client_id`    | Required | The client id (aka key) from the couple key/secret provided by Flat `response_type`| Required | We support `code` (**Authorization Code** flow, [RFC6749/4.1.1](https://tools.ietf.org/html/rfc6749#section-4.1.1)) and `token`, [RFC6749/4.2.1](https://tools.ietf.org/html/rfc6749#section-4.2.1)). It is strongly advised to use the Authorization Code flow for any server-side usage and the Implicit flow for any client-side (e.g. JavaScript) usage. `scope`        | Required | You must provide a list of scopes listed above and granted for your app, separated with a space. `redirect_uri` | Required | Determines where the response is sent. The value of this parameter must exactly match the value specified in your App Credentials settings. `state`        | Optional | An opaque string that is round-tripped in the protocol; that is to say, it is returned as a URI parameter in the Basic flow, and in the URI #fragment in the Implicit flow. `access_type`  | Optional, only available for the Authorization Code flow | The acceptable values are `online` and `offline`. When specifying `offline`, the API will return a refresh token during the access token exchange.  ### OAuth2 tokens revocation  This OAuth2 API supports token revocation ([RFC 7009](http://tools.ietf.org/html/rfc7009)) at the following endpoint: `https://api.flat.io/oauth/invalidate_token`.  # CORS This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/). And that allows cross-domain communication from the browser. All responses have a wildcard same-origin which makes them completely public and accessible to everyone, including any code on any site.  # Rate Limiting For authenticated requests, you can make up to 5,000 requests per hour. For unauthenticated requests, the rate limit allows you to make up to 500 requests per hour. Unauthenticated requests are associated with your IP address, and not the user or app making requests. You can contact us if you need [extra quota](https://flat.io/developers). To protect our quality of service, additional rate limits may apply to some API calls or actions.  You can check the returned HTTP headers of any API request to see your current rate limit status: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 200 OK Date: Sat, 25 Mar 2017 17:06:20 GMT X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 4999 X-RateLimit-Reset: 1490465178 ```  The headers tell you everything you need to know about your current rate limit status:  Header name | Description ------------|------------ `X-RateLimit-Limit` | The maximum number of requests that the consumer is permitted to make per hour. `X-RateLimit-Remaining` | The number of requests remaining in the current rate limit window. This value can be negative if you try to go over the allowed quota. `X-RateLimit-Reset` | The time at which the current rate limit window resets in [UTC epoch seconds](http://en.wikipedia.org/wiki/Unix_time).  If you need the time in a different format, any modern programming language can get the job done. For example, if you open up the console on your web browser, you can easily get the reset time as a JavaScript Date object.  ```javascript new Date(1490465178 * 1000).toString() 'Sat Mar 25 2017 19:06:18 GMT+0100 (CET)' ```  Once you go over the rate limit you will receive an error response: ```bash curl -i https://api.flat.io/v2/me HTTP/1.1 403 Forbidden X-RateLimit-Limit: 5000 X-RateLimit-Remaining: 0 X-RateLimit-Reset: 1490465829  {   \"message\": \"API rate limit exceeded for xx.xxx.xxx.xx\",   \"code\": \"API_RATE_LIMIT_EXCEEDED\" } ``` 
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
  *
- * OpenAPI spec version: 2.0.0
+ * OpenAPI spec version: 2.2.0
  * Contact: developers@flat.io
  *
  * NOTE: This class is auto generated by the swagger code generator program.
  * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
  * Do not edit the class manually.
  *
  */
@@ -9344,7 +15259,7 @@ exports.prototype['htmlUrl'] = undefined;
   /**
    * The UserPublicSummary model module.
    * @module model/UserPublicSummary
-   * @version 2.0.0
+   * @version 2.2.0
    */
 
   /**
@@ -9419,4 +15334,4 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":11,"./ClassRoles":17,"./OrganizationRoles":21,"./UserBasics":44}]},{},[16]);
+},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserBasics":79}]},{},[23]);
