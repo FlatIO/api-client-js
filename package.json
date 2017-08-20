@@ -11,7 +11,7 @@
     "prepublish": "npm build"
   },
   "dependencies": {
-    "superagent": "3.5.2",
+    "superagent": "3.6.0",
     "uglify-js": "^3.0.0"
   },
   "devDependencies": {
