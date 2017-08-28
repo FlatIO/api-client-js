@@ -8,6 +8,8 @@ Name | Type | Description | Notes
 **likedScoresCount** | **Number** | Number of the scores liked by the user | [optional] 
 **followersCount** | **Number** | Number of followers the user have | [optional] 
 **followingCount** | **Number** | Number of people the user follow | [optional] 
-**ownedPublicScoresCount** | **Number** | Number of public score the user have | [optional] 
+**ownedPublicScoresCount** | **Number** | Number of public scores the user have | [optional] 
+**profileTheme** | **String** | Theme (background) for the profile | [optional] 
+**instruments** | [**UserInstruments**](UserInstruments.md) |  | [optional] 
 
 

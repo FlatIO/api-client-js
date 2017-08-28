@@ -49,6 +49,52 @@
 
 
     /**
+     * Callback function to receive the result of the activateClass operation.
+     * @callback module:api/ClassApi~activateClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Activate the class
+     * Mark the class as &#x60;active&#x60;. This is mainly used for classes synchronized from Clever that are initially with an &#x60;inactive&#x60; state and hidden in the UI. 
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~activateClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.activateClass = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling activateClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/activate', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
      * Callback function to receive the result of the addClassUser operation.
      * @callback module:api/ClassApi~addClassUserCallback
      * @param {String} error Error message, if any.

@@ -20,6 +20,8 @@ Name | Type | Description | Notes
 ## Enum: StateEnum
 
 
+* `draft` (value: `"draft"`)
+
 * `active` (value: `"active"`)
 
 * `archived` (value: `"archived"`)

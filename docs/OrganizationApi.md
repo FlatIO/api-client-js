@@ -11,7 +11,9 @@ Method | HTTP request | Description
 [**listOrganizationInvitations**](OrganizationApi.md#listOrganizationInvitations) | **GET** /organizations/invitations | List the organization invitations
 [**listOrganizationUsers**](OrganizationApi.md#listOrganizationUsers) | **GET** /organizations/users | List the organization users
 [**removeOrganizationInvitation**](OrganizationApi.md#removeOrganizationInvitation) | **DELETE** /organizations/invitations/{invitation} | Remove an organization invitation
+[**removeOrganizationUser**](OrganizationApi.md#removeOrganizationUser) | **DELETE** /organizations/users/{user} | Remove an account from Flat
 [**revokeLtiCredentials**](OrganizationApi.md#revokeLtiCredentials) | **DELETE** /organizations/lti/credentials/{credentials} | Revoke LTI 1.x credentials
+[**updateOrganizationUser**](OrganizationApi.md#updateOrganizationUser) | **PUT** /organizations/users/{user} | Update account information
 
 
 <a name="createLtiCredentials"></a>
@@ -229,8 +231,9 @@ var apiInstance = new FlatApi.OrganizationApi();
 
 var opts = { 
   'role': "role_example", // String | Filter users by role
-  'limit': 100, // Number | This is the maximum number of objects that may be returned
-  'offset': 0 // Number | This offsets the start of each page by the number specified
+  'limit': 50, // Number | This is the maximum number of objects that may be returned
+  'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
+  'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
 
 var callback = function(error, data, response) {
@@ -248,8 +251,9 @@ apiInstance.listOrganizationInvitations(opts, callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **role** | **String**| Filter users by role | [optional] 
- **limit** | **Number**| This is the maximum number of objects that may be returned | [optional] [default to 100]
- **offset** | **Number**| This offsets the start of each page by the number specified | [optional] [default to 0]
+ **limit** | **Number**| This is the maximum number of objects that may be returned | [optional] [default to 50]
+ **next** | **String**| An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data.  | [optional] 
+ **previous** | **String**| An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data.  | [optional] 
 
 ### Return type
 
@@ -283,8 +287,9 @@ var apiInstance = new FlatApi.OrganizationApi();
 
 var opts = { 
   'role': "role_example", // String | Filter users by role
-  'limit': 100, // Number | This is the maximum number of objects that may be returned
-  'offset': 0 // Number | This offsets the start of each page by the number specified
+  'limit': 50, // Number | This is the maximum number of objects that may be returned
+  'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
+  'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
 
 var callback = function(error, data, response) {
@@ -302,8 +307,9 @@ apiInstance.listOrganizationUsers(opts, callback);
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **role** | **String**| Filter users by role | [optional] 
- **limit** | **Number**| This is the maximum number of objects that may be returned | [optional] [default to 100]
- **offset** | **Number**| This offsets the start of each page by the number specified | [optional] [default to 0]
+ **limit** | **Number**| This is the maximum number of objects that may be returned | [optional] [default to 50]
+ **next** | **String**| An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data.  | [optional] 
+ **previous** | **String**| An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data.  | [optional] 
 
 ### Return type
 
@@ -367,6 +373,61 @@ null (empty response body)
  - **Content-Type**: application/json
  - **Accept**: application/json
 
+<a name="removeOrganizationUser"></a>
+# **removeOrganizationUser**
+> removeOrganizationUser(user, opts)
+
+Remove an account from Flat
+
+This operation removes an account from Flat and its data, including: * The music scores created by this user (documents, history, comments, collaboration information) * Education related data (assignments and classroom information) 
+
+### Example
+```javascript
+var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
+
+var apiInstance = new FlatApi.OrganizationApi();
+
+var user = "user_example"; // String | Unique identifier of the Flat account 
+
+var opts = { 
+  'convertToIndividual': true // Boolean | If `true`, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal. 
+};
+
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully.');
+  }
+};
+apiInstance.removeOrganizationUser(user, opts, callback);
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **user** | **String**| Unique identifier of the Flat account  | 
+ **convertToIndividual** | **Boolean**| If &#x60;true&#x60;, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal.  | [optional] 
+
+### Return type
+
+null (empty response body)
+
+### Authorization
+
+[OAuth2](../README.md#OAuth2)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
 <a name="revokeLtiCredentials"></a>
 # **revokeLtiCredentials**
 > revokeLtiCredentials(credentials)
@@ -406,6 +467,58 @@ Name | Type | Description  | Notes
 ### Return type
 
 null (empty response body)
+
+### Authorization
+
+[OAuth2](../README.md#OAuth2)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+<a name="updateOrganizationUser"></a>
+# **updateOrganizationUser**
+> UserDetailsAdmin updateOrganizationUser(userbody)
+
+Update account information
+
+### Example
+```javascript
+var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
+
+var apiInstance = new FlatApi.OrganizationApi();
+
+var user = "user_example"; // String | Unique identifier of the Flat account 
+
+var body = new FlatApi.UserAdminUpdate(); // UserAdminUpdate | 
+
+
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully. Returned data: ' + data);
+  }
+};
+apiInstance.updateOrganizationUser(userbody, callback);
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **user** | **String**| Unique identifier of the Flat account  | 
+ **body** | [**UserAdminUpdate**](UserAdminUpdate.md)|  | 
+
+### Return type
+
+[**UserDetailsAdmin**](UserDetailsAdmin.md)
 
 ### Authorization
 

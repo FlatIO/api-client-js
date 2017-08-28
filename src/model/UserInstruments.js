@@ -26,7 +26,7 @@
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.ClassAttachmentCreation = factory(root.FlatApi.ApiClient);
+    root.FlatApi.UserInstruments = factory(root.FlatApi.ApiClient);
   }
 }(this, function(ApiClient) {
   'use strict';
@@ -35,87 +35,43 @@
 
 
   /**
-   * The ClassAttachmentCreation model module.
-   * @module model/ClassAttachmentCreation
+   * The UserInstruments model module.
+   * @module model/UserInstruments
    * @version 2.2.0
    */
 
   /**
-   * Constructs a new <code>ClassAttachmentCreation</code>.
-   * Attachment creation for an assignment or stream post. This attachment must contain a &#x60;score&#x60; or an &#x60;url&#x60;, all the details of this one will be resolved and returned as &#x60;ClassAttachment&#x60; once the assignment or stream post is created. 
-   * @alias module:model/ClassAttachmentCreation
+   * Constructs a new <code>UserInstruments</code>.
+   * An array of the instrument identifiers that the user plays. This is mainly used to display a list of the instruments in the Flat&#39;s UI or instruments icons. The format of the strings is &#x60;{instrument-group}.{instrument-id}&#x60;. 
+   * @alias module:model/UserInstruments
    * @class
+   * @extends Array
    */
   var exports = function() {
     var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
 
-
-
-
+    return _this;
   };
 
   /**
-   * Constructs a <code>ClassAttachmentCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Constructs a <code>UserInstruments</code> from a plain JavaScript object, optionally creating a new instance.
    * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
    * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/ClassAttachmentCreation} obj Optional instance to populate.
-   * @return {module:model/ClassAttachmentCreation} The populated <code>ClassAttachmentCreation</code> instance.
+   * @param {module:model/UserInstruments} obj Optional instance to populate.
+   * @return {module:model/UserInstruments} The populated <code>UserInstruments</code> instance.
    */
   exports.constructFromObject = function(data, obj) {
     if (data) {
       obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'String');
 
-      if (data.hasOwnProperty('type')) {
-        obj['type'] = ApiClient.convertToType(data['type'], 'String');
-      }
-      if (data.hasOwnProperty('score')) {
-        obj['score'] = ApiClient.convertToType(data['score'], 'String');
-      }
-      if (data.hasOwnProperty('url')) {
-        obj['url'] = ApiClient.convertToType(data['url'], 'String');
-      }
     }
     return obj;
   }
 
-  /**
-   * The type of the attachment posted
-   * @member {module:model/ClassAttachmentCreation.TypeEnum} type
-   */
-  exports.prototype['type'] = undefined;
-  /**
-   * A unique Flat score identifier. The user creating the assignment must at least have read access to the document. If the user has admin rights, new group permissions will be automatically added for the teachers and students of the class. 
-   * @member {String} score
-   */
-  exports.prototype['score'] = undefined;
-  /**
-   * The URL of the attachment.
-   * @member {String} url
-   */
-  exports.prototype['url'] = undefined;
 
-
-  /**
-   * Allowed values for the <code>type</code> property.
-   * @enum {String}
-   * @readonly
-   */
-  exports.TypeEnum = {
-    /**
-     * value: "flat"
-     * @const
-     */
-    "flat": "flat",
-    /**
-     * value: "link"
-     * @const
-     */
-    "link": "link",
-    /**
-     * value: "exercise"
-     * @const
-     */
-    "exercise": "exercise"  };
 
 
   return exports;

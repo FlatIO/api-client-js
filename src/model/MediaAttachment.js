@@ -64,6 +64,7 @@
 
 
 
+
   };
 
   /**
@@ -85,6 +86,9 @@
       }
       if (data.hasOwnProperty('revision')) {
         obj['revision'] = ApiClient.convertToType(data['revision'], 'String');
+      }
+      if (data.hasOwnProperty('correct')) {
+        obj['correct'] = ApiClient.convertToType(data['correct'], 'Boolean');
       }
       if (data.hasOwnProperty('sharingMode')) {
         obj['sharingMode'] = MediaScoreSharingMode.constructFromObject(data['sharingMode']);
@@ -141,6 +145,11 @@
    * @member {String} revision
    */
   exports.prototype['revision'] = undefined;
+  /**
+   * If the attachment is an exercise question, this state will describe if it is correct or not.For exercise assignments only.
+   * @member {Boolean} correct
+   */
+  exports.prototype['correct'] = undefined;
   /**
    * @member {module:model/MediaScoreSharingMode} sharingMode
    */
@@ -232,7 +241,12 @@
      * value: "flat"
      * @const
      */
-    "flat": "flat"  };
+    "flat": "flat",
+    /**
+     * value: "exercise"
+     * @const
+     */
+    "exercise": "exercise"  };
 
 
   return exports;

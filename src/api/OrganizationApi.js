@@ -17,18 +17,18 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/FlatErrorResponse', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/UserCreation', 'model/UserDetailsAdmin'], factory);
+    define(['ApiClient', 'model/FlatErrorResponse', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/UserAdminUpdate', 'model/UserCreation', 'model/UserDetailsAdmin'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/LtiCredentials'), require('../model/LtiCredentialsCreation'), require('../model/OrganizationInvitation'), require('../model/OrganizationInvitationCreation'), require('../model/UserCreation'), require('../model/UserDetailsAdmin'));
+    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/LtiCredentials'), require('../model/LtiCredentialsCreation'), require('../model/OrganizationInvitation'), require('../model/OrganizationInvitationCreation'), require('../model/UserAdminUpdate'), require('../model/UserCreation'), require('../model/UserDetailsAdmin'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.OrganizationApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.LtiCredentials, root.FlatApi.LtiCredentialsCreation, root.FlatApi.OrganizationInvitation, root.FlatApi.OrganizationInvitationCreation, root.FlatApi.UserCreation, root.FlatApi.UserDetailsAdmin);
+    root.FlatApi.OrganizationApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.LtiCredentials, root.FlatApi.LtiCredentialsCreation, root.FlatApi.OrganizationInvitation, root.FlatApi.OrganizationInvitationCreation, root.FlatApi.UserAdminUpdate, root.FlatApi.UserCreation, root.FlatApi.UserDetailsAdmin);
   }
-}(this, function(ApiClient, FlatErrorResponse, LtiCredentials, LtiCredentialsCreation, OrganizationInvitation, OrganizationInvitationCreation, UserCreation, UserDetailsAdmin) {
+}(this, function(ApiClient, FlatErrorResponse, LtiCredentials, LtiCredentialsCreation, OrganizationInvitation, OrganizationInvitationCreation, UserAdminUpdate, UserCreation, UserDetailsAdmin) {
   'use strict';
 
   /**
@@ -226,8 +226,9 @@
      * List the organization invitations
      * @param {Object} opts Optional parameters
      * @param {module:model/String} opts.role Filter users by role
-     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
-     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 50)
+     * @param {String} opts.next An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
+     * @param {String} opts.previous An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
      * @param {module:api/OrganizationApi~listOrganizationInvitationsCallback} callback The callback function, accepting three arguments: error, data, response
      * data is of type: {@link Array.<module:model/OrganizationInvitation>}
      */
@@ -241,7 +242,8 @@
       var queryParams = {
         'role': opts['role'],
         'limit': opts['limit'],
-        'offset': opts['offset']
+        'next': opts['next'],
+        'previous': opts['previous']
       };
       var headerParams = {
       };
@@ -272,8 +274,9 @@
      * List the organization users
      * @param {Object} opts Optional parameters
      * @param {module:model/String} opts.role Filter users by role
-     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
-     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 50)
+     * @param {String} opts.next An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
+     * @param {String} opts.previous An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
      * @param {module:api/OrganizationApi~listOrganizationUsersCallback} callback The callback function, accepting three arguments: error, data, response
      * data is of type: {@link Array.<module:model/UserDetailsAdmin>}
      */
@@ -287,7 +290,8 @@
       var queryParams = {
         'role': opts['role'],
         'limit': opts['limit'],
-        'offset': opts['offset']
+        'next': opts['next'],
+        'previous': opts['previous']
       };
       var headerParams = {
       };
@@ -351,6 +355,55 @@
     }
 
     /**
+     * Callback function to receive the result of the removeOrganizationUser operation.
+     * @callback module:api/OrganizationApi~removeOrganizationUserCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Remove an account from Flat
+     * This operation removes an account from Flat and its data, including: * The music scores created by this user (documents, history, comments, collaboration information) * Education related data (assignments and classroom information) 
+     * @param {String} user Unique identifier of the Flat account 
+     * @param {Object} opts Optional parameters
+     * @param {Boolean} opts.convertToIndividual If &#x60;true&#x60;, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal. 
+     * @param {module:api/OrganizationApi~removeOrganizationUserCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.removeOrganizationUser = function(user, opts, callback) {
+      opts = opts || {};
+      var postBody = null;
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling removeOrganizationUser");
+      }
+
+
+      var pathParams = {
+        'user': user
+      };
+      var queryParams = {
+        'convertToIndividual': opts['convertToIndividual']
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/organizations/users/{user}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
      * Callback function to receive the result of the revokeLtiCredentials operation.
      * @callback module:api/OrganizationApi~revokeLtiCredentialsCallback
      * @param {String} error Error message, if any.
@@ -389,6 +442,57 @@
 
       return this.apiClient.callApi(
         '/organizations/lti/credentials/{credentials}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the updateOrganizationUser operation.
+     * @callback module:api/OrganizationApi~updateOrganizationUserCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/UserDetailsAdmin} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Update account information
+     * @param {String} user Unique identifier of the Flat account 
+     * @param {module:model/UserAdminUpdate} body 
+     * @param {module:api/OrganizationApi~updateOrganizationUserCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/UserDetailsAdmin}
+     */
+    this.updateOrganizationUser = function(user, body, callback) {
+      var postBody = body;
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling updateOrganizationUser");
+      }
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling updateOrganizationUser");
+      }
+
+
+      var pathParams = {
+        'user': user
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = UserDetailsAdmin;
+
+      return this.apiClient.callApi(
+        '/organizations/users/{user}', 'PUT',
         pathParams, queryParams, headerParams, formParams, postBody,
         authNames, contentTypes, accepts, returnType, callback
       );

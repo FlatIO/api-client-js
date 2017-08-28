@@ -16,6 +16,8 @@ Name | Type | Description | Notes
 
 * `link` (value: `"link"`)
 
+* `exercise` (value: `"exercise"`)
+
 
 
 

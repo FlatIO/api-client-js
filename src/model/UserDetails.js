@@ -17,18 +17,18 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassRoles', 'model/FlatLocales', 'model/OrganizationRoles', 'model/UserPublic'], factory);
+    define(['ApiClient', 'model/ClassRoles', 'model/FlatLocales', 'model/OrganizationRoles', 'model/UserInstruments', 'model/UserPublic'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./FlatLocales'), require('./OrganizationRoles'), require('./UserPublic'));
+    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./FlatLocales'), require('./OrganizationRoles'), require('./UserInstruments'), require('./UserPublic'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.UserDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.FlatLocales, root.FlatApi.OrganizationRoles, root.FlatApi.UserPublic);
+    root.FlatApi.UserDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.FlatLocales, root.FlatApi.OrganizationRoles, root.FlatApi.UserInstruments, root.FlatApi.UserPublic);
   }
-}(this, function(ApiClient, ClassRoles, FlatLocales, OrganizationRoles, UserPublic) {
+}(this, function(ApiClient, ClassRoles, FlatLocales, OrganizationRoles, UserInstruments, UserPublic) {
   'use strict';
 
 
