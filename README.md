@@ -83,6 +83,7 @@ All URIs are relative to *https://api.flat.io/v2*
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *FlatApi.AccountApi* | [**getAuthenticatedUser**](docs/AccountApi.md#getAuthenticatedUser) | **GET** /me | Get current user profile
+*FlatApi.ClassApi* | [**activateClass**](docs/ClassApi.md#activateClass) | **POST** /classes/{class}/activate | Activate the class
 *FlatApi.ClassApi* | [**addClassUser**](docs/ClassApi.md#addClassUser) | **PUT** /classes/{class}/users/{user} | Add a user to the class
 *FlatApi.ClassApi* | [**archiveClass**](docs/ClassApi.md#archiveClass) | **POST** /classes/{class}/archive | Archive the class
 *FlatApi.ClassApi* | [**copyAssignment**](docs/ClassApi.md#copyAssignment) | **POST** /classes/{class}/assignments/{assignment}/copy | Copy an assignment
@@ -111,7 +112,9 @@ Class | Method | HTTP request | Description
 *FlatApi.OrganizationApi* | [**listOrganizationInvitations**](docs/OrganizationApi.md#listOrganizationInvitations) | **GET** /organizations/invitations | List the organization invitations
 *FlatApi.OrganizationApi* | [**listOrganizationUsers**](docs/OrganizationApi.md#listOrganizationUsers) | **GET** /organizations/users | List the organization users
 *FlatApi.OrganizationApi* | [**removeOrganizationInvitation**](docs/OrganizationApi.md#removeOrganizationInvitation) | **DELETE** /organizations/invitations/{invitation} | Remove an organization invitation
+*FlatApi.OrganizationApi* | [**removeOrganizationUser**](docs/OrganizationApi.md#removeOrganizationUser) | **DELETE** /organizations/users/{user} | Remove an account from Flat
 *FlatApi.OrganizationApi* | [**revokeLtiCredentials**](docs/OrganizationApi.md#revokeLtiCredentials) | **DELETE** /organizations/lti/credentials/{credentials} | Revoke LTI 1.x credentials
+*FlatApi.OrganizationApi* | [**updateOrganizationUser**](docs/OrganizationApi.md#updateOrganizationUser) | **PUT** /organizations/users/{user} | Update account information
 *FlatApi.ScoreApi* | [**addScoreCollaborator**](docs/ScoreApi.md#addScoreCollaborator) | **POST** /scores/{score}/collaborators | Add a new collaborator
 *FlatApi.ScoreApi* | [**createScore**](docs/ScoreApi.md#createScore) | **POST** /scores | Create a new score
 *FlatApi.ScoreApi* | [**createScoreRevision**](docs/ScoreApi.md#createScoreRevision) | **POST** /scores/{score}/revisions | Create a new revision
@@ -151,12 +154,12 @@ Class | Method | HTTP request | Description
  - [FlatApi.ClassCreation](docs/ClassCreation.md)
  - [FlatApi.ClassDetails](docs/ClassDetails.md)
  - [FlatApi.ClassDetailsCanvas](docs/ClassDetailsCanvas.md)
+ - [FlatApi.ClassDetailsClever](docs/ClassDetailsClever.md)
  - [FlatApi.ClassDetailsGoogleClassroom](docs/ClassDetailsGoogleClassroom.md)
  - [FlatApi.ClassDetailsGoogleDrive](docs/ClassDetailsGoogleDrive.md)
  - [FlatApi.ClassDetailsLti](docs/ClassDetailsLti.md)
  - [FlatApi.ClassRoles](docs/ClassRoles.md)
  - [FlatApi.ClassState](docs/ClassState.md)
- - [FlatApi.ClassStreamPostMode](docs/ClassStreamPostMode.md)
  - [FlatApi.ClassUpdate](docs/ClassUpdate.md)
  - [FlatApi.FlatErrorResponse](docs/FlatErrorResponse.md)
  - [FlatApi.FlatLocales](docs/FlatLocales.md)
@@ -196,9 +199,11 @@ Class | Method | HTTP request | Description
  - [FlatApi.ScoreSource](docs/ScoreSource.md)
  - [FlatApi.ScoreSummary](docs/ScoreSummary.md)
  - [FlatApi.ScoreViewsCounts](docs/ScoreViewsCounts.md)
+ - [FlatApi.UserAdminUpdate](docs/UserAdminUpdate.md)
  - [FlatApi.UserBasics](docs/UserBasics.md)
  - [FlatApi.UserCreation](docs/UserCreation.md)
  - [FlatApi.UserDetailsAdminLicense](docs/UserDetailsAdminLicense.md)
+ - [FlatApi.UserInstruments](docs/UserInstruments.md)
  - [FlatApi.ScoreDetails](docs/ScoreDetails.md)
  - [FlatApi.UserPublicSummary](docs/UserPublicSummary.md)
  - [FlatApi.UserDetailsAdmin](docs/UserDetailsAdmin.md)

@@ -16,54 +16,47 @@
 
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
+    // AMD.
+    define(['expect.js', '../../src/index'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
+    factory(require('expect.js'), require('../../src/index'));
   } else {
     // Browser globals (root is window)
-    if (!root.FlatApi) {
-      root.FlatApi = {};
-    }
-    root.FlatApi.ClassState = factory(root.FlatApi.ApiClient);
+    factory(root.expect, root.FlatApi);
   }
-}(this, function(ApiClient) {
+}(this, function(expect, FlatApi) {
   'use strict';
 
+  var instance;
 
-  /**
-   * Enum class ClassState.
-   * @enum {}
-   * @readonly
-   */
-  var exports = {
-    /**
-     * value: "active"
-     * @const
-     */
-    "active": "active",
-    /**
-     * value: "inactive"
-     * @const
-     */
-    "inactive": "inactive",
-    /**
-     * value: "archived"
-     * @const
-     */
-    "archived": "archived"  };
+  beforeEach(function() {
+    instance = new FlatApi.UserInstruments();
+  });
 
-  /**
-   * Returns a <code>ClassState</code> enum value from a Javascript object name.
-   * @param {Object} data The plain JavaScript object containing the name of the enum value.
-   * @return {module:model/ClassState} The enum <code>ClassState</code> value.
-   */
-  exports.constructFromObject = function(object) {
-    return object;
+  var getProperty = function(object, getter, property) {
+    // Use getter method if present; otherwise, get the property directly.
+    if (typeof object[getter] === 'function')
+      return object[getter]();
+    else
+      return object[property];
   }
 
-  return exports;
+  var setProperty = function(object, setter, property, value) {
+    // Use setter method if present; otherwise, set the property directly.
+    if (typeof object[setter] === 'function')
+      object[setter](value);
+    else
+      object[property] = value;
+  }
+
+  describe('UserInstruments', function() {
+    it('should create an instance of UserInstruments', function() {
+      // uncomment below and update the code to test UserInstruments
+      //var instane = new FlatApi.UserInstruments();
+      //expect(instance).to.be.a(FlatApi.UserInstruments);
+    });
+
+  });
+
 }));
-
-

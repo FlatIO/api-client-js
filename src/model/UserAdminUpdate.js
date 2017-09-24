@@ -17,33 +17,33 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
+    define(['ApiClient', 'model/OrganizationRoles'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
+    module.exports = factory(require('../ApiClient'), require('./OrganizationRoles'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.ClassAttachmentCreation = factory(root.FlatApi.ApiClient);
+    root.FlatApi.UserAdminUpdate = factory(root.FlatApi.ApiClient, root.FlatApi.OrganizationRoles);
   }
-}(this, function(ApiClient) {
+}(this, function(ApiClient, OrganizationRoles) {
   'use strict';
 
 
 
 
   /**
-   * The ClassAttachmentCreation model module.
-   * @module model/ClassAttachmentCreation
+   * The UserAdminUpdate model module.
+   * @module model/UserAdminUpdate
    * @version 2.2.0
    */
 
   /**
-   * Constructs a new <code>ClassAttachmentCreation</code>.
-   * Attachment creation for an assignment or stream post. This attachment must contain a &#x60;score&#x60; or an &#x60;url&#x60;, all the details of this one will be resolved and returned as &#x60;ClassAttachment&#x60; once the assignment or stream post is created. 
-   * @alias module:model/ClassAttachmentCreation
+   * Constructs a new <code>UserAdminUpdate</code>.
+   * User update as an organization admin
+   * @alias module:model/UserAdminUpdate
    * @class
    */
   var exports = function() {
@@ -51,71 +51,39 @@
 
 
 
-
   };
 
   /**
-   * Constructs a <code>ClassAttachmentCreation</code> from a plain JavaScript object, optionally creating a new instance.
+   * Constructs a <code>UserAdminUpdate</code> from a plain JavaScript object, optionally creating a new instance.
    * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
    * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/ClassAttachmentCreation} obj Optional instance to populate.
-   * @return {module:model/ClassAttachmentCreation} The populated <code>ClassAttachmentCreation</code> instance.
+   * @param {module:model/UserAdminUpdate} obj Optional instance to populate.
+   * @return {module:model/UserAdminUpdate} The populated <code>UserAdminUpdate</code> instance.
    */
   exports.constructFromObject = function(data, obj) {
     if (data) {
       obj = obj || new exports();
 
-      if (data.hasOwnProperty('type')) {
-        obj['type'] = ApiClient.convertToType(data['type'], 'String');
+      if (data.hasOwnProperty('password')) {
+        obj['password'] = ApiClient.convertToType(data['password'], 'String');
       }
-      if (data.hasOwnProperty('score')) {
-        obj['score'] = ApiClient.convertToType(data['score'], 'String');
-      }
-      if (data.hasOwnProperty('url')) {
-        obj['url'] = ApiClient.convertToType(data['url'], 'String');
+      if (data.hasOwnProperty('organizationRole')) {
+        obj['organizationRole'] = OrganizationRoles.constructFromObject(data['organizationRole']);
       }
     }
     return obj;
   }
 
   /**
-   * The type of the attachment posted
-   * @member {module:model/ClassAttachmentCreation.TypeEnum} type
+   * Password of the new account
+   * @member {String} password
    */
-  exports.prototype['type'] = undefined;
+  exports.prototype['password'] = undefined;
   /**
-   * A unique Flat score identifier. The user creating the assignment must at least have read access to the document. If the user has admin rights, new group permissions will be automatically added for the teachers and students of the class. 
-   * @member {String} score
+   * @member {module:model/OrganizationRoles} organizationRole
    */
-  exports.prototype['score'] = undefined;
-  /**
-   * The URL of the attachment.
-   * @member {String} url
-   */
-  exports.prototype['url'] = undefined;
+  exports.prototype['organizationRole'] = undefined;
 
-
-  /**
-   * Allowed values for the <code>type</code> property.
-   * @enum {String}
-   * @readonly
-   */
-  exports.TypeEnum = {
-    /**
-     * value: "flat"
-     * @const
-     */
-    "flat": "flat",
-    /**
-     * value: "link"
-     * @const
-     */
-    "link": "link",
-    /**
-     * value: "exercise"
-     * @const
-     */
-    "exercise": "exercise"  };
 
 
   return exports;

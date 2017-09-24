@@ -20,5 +20,6 @@ Name | Type | Description | Notes
 **googleDrive** | [**ClassDetailsGoogleDrive**](ClassDetailsGoogleDrive.md) |  | [optional] 
 **lti** | [**ClassDetailsLti**](ClassDetailsLti.md) |  | [optional] 
 **canvas** | [**ClassDetailsCanvas**](ClassDetailsCanvas.md) |  | [optional] 
+**clever** | [**ClassDetailsClever**](ClassDetailsClever.md) |  | [optional] 
 
 

@@ -4,6 +4,7 @@ All URIs are relative to *https://api.flat.io/v2*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**activateClass**](ClassApi.md#activateClass) | **POST** /classes/{class}/activate | Activate the class
 [**addClassUser**](ClassApi.md#addClassUser) | **PUT** /classes/{class}/users/{user} | Add a user to the class
 [**archiveClass**](ClassApi.md#archiveClass) | **POST** /classes/{class}/archive | Archive the class
 [**copyAssignment**](ClassApi.md#copyAssignment) | **POST** /classes/{class}/assignments/{assignment}/copy | Copy an assignment
@@ -23,6 +24,57 @@ Method | HTTP request | Description
 [**unarchiveClass**](ClassApi.md#unarchiveClass) | **DELETE** /classes/{class}/archive | Unarchive the class
 [**updateClass**](ClassApi.md#updateClass) | **PUT** /classes/{class} | Update the class
 
+
+<a name="activateClass"></a>
+# **activateClass**
+> ClassDetails activateClass(_class)
+
+Activate the class
+
+Mark the class as &#x60;active&#x60;. This is mainly used for classes synchronized from Clever that are initially with an &#x60;inactive&#x60; state and hidden in the UI. 
+
+### Example
+```javascript
+var FlatApi = require('flat-api');
+var defaultClient = FlatApi.ApiClient.instance;
+
+// Configure OAuth2 access token for authorization: OAuth2
+var OAuth2 = defaultClient.authentications['OAuth2'];
+OAuth2.accessToken = 'YOUR ACCESS TOKEN';
+
+var apiInstance = new FlatApi.ClassApi();
+
+var _class = "_class_example"; // String | Unique identifier of the class
+
+
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully. Returned data: ' + data);
+  }
+};
+apiInstance.activateClass(_class, callback);
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **_class** | **String**| Unique identifier of the class | 
+
+### Return type
+
+[**ClassDetails**](ClassDetails.md)
+
+### Authorization
+
+[OAuth2](../README.md#OAuth2)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
 
 <a name="addClassUser"></a>
 # **addClassUser**

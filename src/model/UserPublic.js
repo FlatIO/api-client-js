@@ -17,18 +17,18 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassRoles', 'model/OrganizationRoles', 'model/UserPublicSummary'], factory);
+    define(['ApiClient', 'model/ClassRoles', 'model/OrganizationRoles', 'model/UserInstruments', 'model/UserPublicSummary'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./OrganizationRoles'), require('./UserPublicSummary'));
+    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./OrganizationRoles'), require('./UserInstruments'), require('./UserPublicSummary'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.UserPublic = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.OrganizationRoles, root.FlatApi.UserPublicSummary);
+    root.FlatApi.UserPublic = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.OrganizationRoles, root.FlatApi.UserInstruments, root.FlatApi.UserPublicSummary);
   }
-}(this, function(ApiClient, ClassRoles, OrganizationRoles, UserPublicSummary) {
+}(this, function(ApiClient, ClassRoles, OrganizationRoles, UserInstruments, UserPublicSummary) {
   'use strict';
 
 
@@ -50,6 +50,8 @@
   var exports = function() {
     var _this = this;
     UserPublicSummary.call(_this);
+
+
 
 
 
@@ -87,6 +89,12 @@
       if (data.hasOwnProperty('ownedPublicScoresCount')) {
         obj['ownedPublicScoresCount'] = ApiClient.convertToType(data['ownedPublicScoresCount'], 'Number');
       }
+      if (data.hasOwnProperty('profileTheme')) {
+        obj['profileTheme'] = ApiClient.convertToType(data['profileTheme'], 'String');
+      }
+      if (data.hasOwnProperty('instruments')) {
+        obj['instruments'] = UserInstruments.constructFromObject(data['instruments']);
+      }
     }
     return obj;
   }
@@ -120,10 +128,19 @@
    */
   exports.prototype['followingCount'] = undefined;
   /**
-   * Number of public score the user have
+   * Number of public scores the user have
    * @member {Number} ownedPublicScoresCount
    */
   exports.prototype['ownedPublicScoresCount'] = undefined;
+  /**
+   * Theme (background) for the profile
+   * @member {String} profileTheme
+   */
+  exports.prototype['profileTheme'] = undefined;
+  /**
+   * @member {module:model/UserInstruments} instruments
+   */
+  exports.prototype['instruments'] = undefined;
 
 
 

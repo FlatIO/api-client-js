@@ -50,6 +50,7 @@
     var _this = this;
 
 
+
   };
 
   /**
@@ -66,6 +67,9 @@
       if (data.hasOwnProperty('id')) {
         obj['id'] = ApiClient.convertToType(data['id'], 'String');
       }
+      if (data.hasOwnProperty('domain')) {
+        obj['domain'] = ApiClient.convertToType(data['domain'], 'String');
+      }
     }
     return obj;
   }
@@ -75,6 +79,11 @@
    * @member {String} id
    */
   exports.prototype['id'] = undefined;
+  /**
+   * Canvas instance domain (e.g. \"canvas.instructure.com\")
+   * @member {String} domain
+   */
+  exports.prototype['domain'] = undefined;
 
 
 

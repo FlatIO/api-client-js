@@ -4709,7 +4709,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
   return exports;
 }));
 
-},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/UserDetails":81}],18:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/UserDetails":82}],18:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -4759,6 +4759,52 @@ exports.cleanHeader = function(header, shouldStripCookie){
   var exports = function(apiClient) {
     this.apiClient = apiClient || ApiClient.instance;
 
+
+    /**
+     * Callback function to receive the result of the activateClass operation.
+     * @callback module:api/ClassApi~activateClassCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ClassDetails} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Activate the class
+     * Mark the class as &#x60;active&#x60;. This is mainly used for classes synchronized from Clever that are initially with an &#x60;inactive&#x60; state and hidden in the UI. 
+     * @param {String} _class Unique identifier of the class
+     * @param {module:api/ClassApi~activateClassCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ClassDetails}
+     */
+    this.activateClass = function(_class, callback) {
+      var postBody = null;
+
+      // verify the required parameter '_class' is set
+      if (_class === undefined || _class === null) {
+        throw new Error("Missing the required parameter '_class' when calling activateClass");
+      }
+
+
+      var pathParams = {
+        'class': _class
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ClassDetails;
+
+      return this.apiClient.callApi(
+        '/classes/{class}/activate', 'POST',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
 
     /**
      * Callback function to receive the result of the addClassUser operation.
@@ -5870,7 +5916,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
   return exports;
 }));
 
-},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/GroupDetails":45,"../model/ScoreDetails":67,"../model/UserPublic":84}],20:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/GroupDetails":45,"../model/ScoreDetails":67,"../model/UserPublic":86}],20:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -5890,18 +5936,18 @@ exports.cleanHeader = function(header, shouldStripCookie){
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/FlatErrorResponse', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/UserCreation', 'model/UserDetailsAdmin'], factory);
+    define(['ApiClient', 'model/FlatErrorResponse', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/UserAdminUpdate', 'model/UserCreation', 'model/UserDetailsAdmin'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/LtiCredentials'), require('../model/LtiCredentialsCreation'), require('../model/OrganizationInvitation'), require('../model/OrganizationInvitationCreation'), require('../model/UserCreation'), require('../model/UserDetailsAdmin'));
+    module.exports = factory(require('../ApiClient'), require('../model/FlatErrorResponse'), require('../model/LtiCredentials'), require('../model/LtiCredentialsCreation'), require('../model/OrganizationInvitation'), require('../model/OrganizationInvitationCreation'), require('../model/UserAdminUpdate'), require('../model/UserCreation'), require('../model/UserDetailsAdmin'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.OrganizationApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.LtiCredentials, root.FlatApi.LtiCredentialsCreation, root.FlatApi.OrganizationInvitation, root.FlatApi.OrganizationInvitationCreation, root.FlatApi.UserCreation, root.FlatApi.UserDetailsAdmin);
+    root.FlatApi.OrganizationApi = factory(root.FlatApi.ApiClient, root.FlatApi.FlatErrorResponse, root.FlatApi.LtiCredentials, root.FlatApi.LtiCredentialsCreation, root.FlatApi.OrganizationInvitation, root.FlatApi.OrganizationInvitationCreation, root.FlatApi.UserAdminUpdate, root.FlatApi.UserCreation, root.FlatApi.UserDetailsAdmin);
   }
-}(this, function(ApiClient, FlatErrorResponse, LtiCredentials, LtiCredentialsCreation, OrganizationInvitation, OrganizationInvitationCreation, UserCreation, UserDetailsAdmin) {
+}(this, function(ApiClient, FlatErrorResponse, LtiCredentials, LtiCredentialsCreation, OrganizationInvitation, OrganizationInvitationCreation, UserAdminUpdate, UserCreation, UserDetailsAdmin) {
   'use strict';
 
   /**
@@ -6099,8 +6145,9 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * List the organization invitations
      * @param {Object} opts Optional parameters
      * @param {module:model/String} opts.role Filter users by role
-     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
-     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 50)
+     * @param {String} opts.next An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
+     * @param {String} opts.previous An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
      * @param {module:api/OrganizationApi~listOrganizationInvitationsCallback} callback The callback function, accepting three arguments: error, data, response
      * data is of type: {@link Array.<module:model/OrganizationInvitation>}
      */
@@ -6114,7 +6161,8 @@ exports.cleanHeader = function(header, shouldStripCookie){
       var queryParams = {
         'role': opts['role'],
         'limit': opts['limit'],
-        'offset': opts['offset']
+        'next': opts['next'],
+        'previous': opts['previous']
       };
       var headerParams = {
       };
@@ -6145,8 +6193,9 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * List the organization users
      * @param {Object} opts Optional parameters
      * @param {module:model/String} opts.role Filter users by role
-     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 100)
-     * @param {Number} opts.offset This offsets the start of each page by the number specified (default to 0)
+     * @param {Number} opts.limit This is the maximum number of objects that may be returned (default to 50)
+     * @param {String} opts.next An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
+     * @param {String} opts.previous An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the &#x60;Link&#x60; header when requesting the API. These URLs will contain a &#x60;next&#x60; and &#x60;previous&#x60; cursor based on the available data. 
      * @param {module:api/OrganizationApi~listOrganizationUsersCallback} callback The callback function, accepting three arguments: error, data, response
      * data is of type: {@link Array.<module:model/UserDetailsAdmin>}
      */
@@ -6160,7 +6209,8 @@ exports.cleanHeader = function(header, shouldStripCookie){
       var queryParams = {
         'role': opts['role'],
         'limit': opts['limit'],
-        'offset': opts['offset']
+        'next': opts['next'],
+        'previous': opts['previous']
       };
       var headerParams = {
       };
@@ -6224,6 +6274,55 @@ exports.cleanHeader = function(header, shouldStripCookie){
     }
 
     /**
+     * Callback function to receive the result of the removeOrganizationUser operation.
+     * @callback module:api/OrganizationApi~removeOrganizationUserCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Remove an account from Flat
+     * This operation removes an account from Flat and its data, including: * The music scores created by this user (documents, history, comments, collaboration information) * Education related data (assignments and classroom information) 
+     * @param {String} user Unique identifier of the Flat account 
+     * @param {Object} opts Optional parameters
+     * @param {Boolean} opts.convertToIndividual If &#x60;true&#x60;, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal. 
+     * @param {module:api/OrganizationApi~removeOrganizationUserCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.removeOrganizationUser = function(user, opts, callback) {
+      opts = opts || {};
+      var postBody = null;
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling removeOrganizationUser");
+      }
+
+
+      var pathParams = {
+        'user': user
+      };
+      var queryParams = {
+        'convertToIndividual': opts['convertToIndividual']
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/organizations/users/{user}', 'DELETE',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
      * Callback function to receive the result of the revokeLtiCredentials operation.
      * @callback module:api/OrganizationApi~revokeLtiCredentialsCallback
      * @param {String} error Error message, if any.
@@ -6266,12 +6365,63 @@ exports.cleanHeader = function(header, shouldStripCookie){
         authNames, contentTypes, accepts, returnType, callback
       );
     }
+
+    /**
+     * Callback function to receive the result of the updateOrganizationUser operation.
+     * @callback module:api/OrganizationApi~updateOrganizationUserCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/UserDetailsAdmin} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Update account information
+     * @param {String} user Unique identifier of the Flat account 
+     * @param {module:model/UserAdminUpdate} body 
+     * @param {module:api/OrganizationApi~updateOrganizationUserCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/UserDetailsAdmin}
+     */
+    this.updateOrganizationUser = function(user, body, callback) {
+      var postBody = body;
+
+      // verify the required parameter 'user' is set
+      if (user === undefined || user === null) {
+        throw new Error("Missing the required parameter 'user' when calling updateOrganizationUser");
+      }
+
+      // verify the required parameter 'body' is set
+      if (body === undefined || body === null) {
+        throw new Error("Missing the required parameter 'body' when calling updateOrganizationUser");
+      }
+
+
+      var pathParams = {
+        'user': user
+      };
+      var queryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['OAuth2'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = UserDetailsAdmin;
+
+      return this.apiClient.callApi(
+        '/organizations/users/{user}', 'PUT',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
   };
 
   return exports;
 }));
 
-},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/LtiCredentials":50,"../model/LtiCredentialsCreation":51,"../model/OrganizationInvitation":54,"../model/OrganizationInvitationCreation":55,"../model/UserCreation":80,"../model/UserDetailsAdmin":82}],21:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/LtiCredentials":50,"../model/LtiCredentialsCreation":51,"../model/OrganizationInvitation":54,"../model/OrganizationInvitationCreation":55,"../model/UserAdminUpdate":79,"../model/UserCreation":81,"../model/UserDetailsAdmin":83}],21:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -7737,7 +7887,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
   return exports;
 }));
 
-},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/ScoreDetails":67,"../model/UserPublic":84}],23:[function(require,module,exports){
+},{"../ApiClient":16,"../model/FlatErrorResponse":40,"../model/ScoreDetails":67,"../model/UserPublic":86}],23:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -7757,12 +7907,12 @@ exports.cleanHeader = function(header, shouldStripCookie){
 (function(factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Assignment', 'model/AssignmentCopy', 'model/AssignmentCreation', 'model/AssignmentSubmission', 'model/AssignmentSubmissionUpdate', 'model/ClassAttachmentCreation', 'model/ClassCreation', 'model/ClassDetails', 'model/ClassDetailsCanvas', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassRoles', 'model/ClassState', 'model/ClassStreamPostMode', 'model/ClassUpdate', 'model/FlatErrorResponse', 'model/FlatLocales', 'model/GoogleClassroomCoursework', 'model/GoogleClassroomSubmission', 'model/Group', 'model/GroupDetails', 'model/GroupType', 'model/LicenseMode', 'model/LicenseSources', 'model/LmsName', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/MediaAttachment', 'model/MediaScoreSharingMode', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/OrganizationRoles', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentContext', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCommentsCounts', 'model/ScoreCreation', 'model/ScoreData', 'model/ScoreDataEncoding', 'model/ScoreFork', 'model/ScoreLikesCounts', 'model/ScoreModification', 'model/ScorePrivacy', 'model/ScoreRevision', 'model/ScoreRevisionCreation', 'model/ScoreRevisionStatistics', 'model/ScoreRights', 'model/ScoreSource', 'model/ScoreSummary', 'model/ScoreViewsCounts', 'model/UserBasics', 'model/UserCreation', 'model/UserDetailsAdminLicense', 'model/ScoreDetails', 'model/UserPublicSummary', 'model/UserDetailsAdmin', 'model/UserPublic', 'model/UserDetails', 'api/AccountApi', 'api/ClassApi', 'api/GroupApi', 'api/OrganizationApi', 'api/ScoreApi', 'api/UserApi'], factory);
+    define(['ApiClient', 'model/Assignment', 'model/AssignmentCopy', 'model/AssignmentCreation', 'model/AssignmentSubmission', 'model/AssignmentSubmissionUpdate', 'model/ClassAttachmentCreation', 'model/ClassCreation', 'model/ClassDetails', 'model/ClassDetailsCanvas', 'model/ClassDetailsClever', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassRoles', 'model/ClassState', 'model/ClassUpdate', 'model/FlatErrorResponse', 'model/FlatLocales', 'model/GoogleClassroomCoursework', 'model/GoogleClassroomSubmission', 'model/Group', 'model/GroupDetails', 'model/GroupType', 'model/LicenseMode', 'model/LicenseSources', 'model/LmsName', 'model/LtiCredentials', 'model/LtiCredentialsCreation', 'model/MediaAttachment', 'model/MediaScoreSharingMode', 'model/OrganizationInvitation', 'model/OrganizationInvitationCreation', 'model/OrganizationRoles', 'model/ScoreCollaborator', 'model/ScoreCollaboratorCreation', 'model/ScoreComment', 'model/ScoreCommentContext', 'model/ScoreCommentCreation', 'model/ScoreCommentUpdate', 'model/ScoreCommentsCounts', 'model/ScoreCreation', 'model/ScoreData', 'model/ScoreDataEncoding', 'model/ScoreFork', 'model/ScoreLikesCounts', 'model/ScoreModification', 'model/ScorePrivacy', 'model/ScoreRevision', 'model/ScoreRevisionCreation', 'model/ScoreRevisionStatistics', 'model/ScoreRights', 'model/ScoreSource', 'model/ScoreSummary', 'model/ScoreViewsCounts', 'model/UserAdminUpdate', 'model/UserBasics', 'model/UserCreation', 'model/UserDetailsAdminLicense', 'model/UserInstruments', 'model/ScoreDetails', 'model/UserPublicSummary', 'model/UserDetailsAdmin', 'model/UserPublic', 'model/UserDetails', 'api/AccountApi', 'api/ClassApi', 'api/GroupApi', 'api/OrganizationApi', 'api/ScoreApi', 'api/UserApi'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('./ApiClient'), require('./model/Assignment'), require('./model/AssignmentCopy'), require('./model/AssignmentCreation'), require('./model/AssignmentSubmission'), require('./model/AssignmentSubmissionUpdate'), require('./model/ClassAttachmentCreation'), require('./model/ClassCreation'), require('./model/ClassDetails'), require('./model/ClassDetailsCanvas'), require('./model/ClassDetailsGoogleClassroom'), require('./model/ClassDetailsGoogleDrive'), require('./model/ClassDetailsLti'), require('./model/ClassRoles'), require('./model/ClassState'), require('./model/ClassStreamPostMode'), require('./model/ClassUpdate'), require('./model/FlatErrorResponse'), require('./model/FlatLocales'), require('./model/GoogleClassroomCoursework'), require('./model/GoogleClassroomSubmission'), require('./model/Group'), require('./model/GroupDetails'), require('./model/GroupType'), require('./model/LicenseMode'), require('./model/LicenseSources'), require('./model/LmsName'), require('./model/LtiCredentials'), require('./model/LtiCredentialsCreation'), require('./model/MediaAttachment'), require('./model/MediaScoreSharingMode'), require('./model/OrganizationInvitation'), require('./model/OrganizationInvitationCreation'), require('./model/OrganizationRoles'), require('./model/ScoreCollaborator'), require('./model/ScoreCollaboratorCreation'), require('./model/ScoreComment'), require('./model/ScoreCommentContext'), require('./model/ScoreCommentCreation'), require('./model/ScoreCommentUpdate'), require('./model/ScoreCommentsCounts'), require('./model/ScoreCreation'), require('./model/ScoreData'), require('./model/ScoreDataEncoding'), require('./model/ScoreFork'), require('./model/ScoreLikesCounts'), require('./model/ScoreModification'), require('./model/ScorePrivacy'), require('./model/ScoreRevision'), require('./model/ScoreRevisionCreation'), require('./model/ScoreRevisionStatistics'), require('./model/ScoreRights'), require('./model/ScoreSource'), require('./model/ScoreSummary'), require('./model/ScoreViewsCounts'), require('./model/UserBasics'), require('./model/UserCreation'), require('./model/UserDetailsAdminLicense'), require('./model/ScoreDetails'), require('./model/UserPublicSummary'), require('./model/UserDetailsAdmin'), require('./model/UserPublic'), require('./model/UserDetails'), require('./api/AccountApi'), require('./api/ClassApi'), require('./api/GroupApi'), require('./api/OrganizationApi'), require('./api/ScoreApi'), require('./api/UserApi'));
+    module.exports = factory(require('./ApiClient'), require('./model/Assignment'), require('./model/AssignmentCopy'), require('./model/AssignmentCreation'), require('./model/AssignmentSubmission'), require('./model/AssignmentSubmissionUpdate'), require('./model/ClassAttachmentCreation'), require('./model/ClassCreation'), require('./model/ClassDetails'), require('./model/ClassDetailsCanvas'), require('./model/ClassDetailsClever'), require('./model/ClassDetailsGoogleClassroom'), require('./model/ClassDetailsGoogleDrive'), require('./model/ClassDetailsLti'), require('./model/ClassRoles'), require('./model/ClassState'), require('./model/ClassUpdate'), require('./model/FlatErrorResponse'), require('./model/FlatLocales'), require('./model/GoogleClassroomCoursework'), require('./model/GoogleClassroomSubmission'), require('./model/Group'), require('./model/GroupDetails'), require('./model/GroupType'), require('./model/LicenseMode'), require('./model/LicenseSources'), require('./model/LmsName'), require('./model/LtiCredentials'), require('./model/LtiCredentialsCreation'), require('./model/MediaAttachment'), require('./model/MediaScoreSharingMode'), require('./model/OrganizationInvitation'), require('./model/OrganizationInvitationCreation'), require('./model/OrganizationRoles'), require('./model/ScoreCollaborator'), require('./model/ScoreCollaboratorCreation'), require('./model/ScoreComment'), require('./model/ScoreCommentContext'), require('./model/ScoreCommentCreation'), require('./model/ScoreCommentUpdate'), require('./model/ScoreCommentsCounts'), require('./model/ScoreCreation'), require('./model/ScoreData'), require('./model/ScoreDataEncoding'), require('./model/ScoreFork'), require('./model/ScoreLikesCounts'), require('./model/ScoreModification'), require('./model/ScorePrivacy'), require('./model/ScoreRevision'), require('./model/ScoreRevisionCreation'), require('./model/ScoreRevisionStatistics'), require('./model/ScoreRights'), require('./model/ScoreSource'), require('./model/ScoreSummary'), require('./model/ScoreViewsCounts'), require('./model/UserAdminUpdate'), require('./model/UserBasics'), require('./model/UserCreation'), require('./model/UserDetailsAdminLicense'), require('./model/UserInstruments'), require('./model/ScoreDetails'), require('./model/UserPublicSummary'), require('./model/UserDetailsAdmin'), require('./model/UserPublic'), require('./model/UserDetails'), require('./api/AccountApi'), require('./api/ClassApi'), require('./api/GroupApi'), require('./api/OrganizationApi'), require('./api/ScoreApi'), require('./api/UserApi'));
   }
-}(function(ApiClient, Assignment, AssignmentCopy, AssignmentCreation, AssignmentSubmission, AssignmentSubmissionUpdate, ClassAttachmentCreation, ClassCreation, ClassDetails, ClassDetailsCanvas, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassRoles, ClassState, ClassStreamPostMode, ClassUpdate, FlatErrorResponse, FlatLocales, GoogleClassroomCoursework, GoogleClassroomSubmission, Group, GroupDetails, GroupType, LicenseMode, LicenseSources, LmsName, LtiCredentials, LtiCredentialsCreation, MediaAttachment, MediaScoreSharingMode, OrganizationInvitation, OrganizationInvitationCreation, OrganizationRoles, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentContext, ScoreCommentCreation, ScoreCommentUpdate, ScoreCommentsCounts, ScoreCreation, ScoreData, ScoreDataEncoding, ScoreFork, ScoreLikesCounts, ScoreModification, ScorePrivacy, ScoreRevision, ScoreRevisionCreation, ScoreRevisionStatistics, ScoreRights, ScoreSource, ScoreSummary, ScoreViewsCounts, UserBasics, UserCreation, UserDetailsAdminLicense, ScoreDetails, UserPublicSummary, UserDetailsAdmin, UserPublic, UserDetails, AccountApi, ClassApi, GroupApi, OrganizationApi, ScoreApi, UserApi) {
+}(function(ApiClient, Assignment, AssignmentCopy, AssignmentCreation, AssignmentSubmission, AssignmentSubmissionUpdate, ClassAttachmentCreation, ClassCreation, ClassDetails, ClassDetailsCanvas, ClassDetailsClever, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassRoles, ClassState, ClassUpdate, FlatErrorResponse, FlatLocales, GoogleClassroomCoursework, GoogleClassroomSubmission, Group, GroupDetails, GroupType, LicenseMode, LicenseSources, LmsName, LtiCredentials, LtiCredentialsCreation, MediaAttachment, MediaScoreSharingMode, OrganizationInvitation, OrganizationInvitationCreation, OrganizationRoles, ScoreCollaborator, ScoreCollaboratorCreation, ScoreComment, ScoreCommentContext, ScoreCommentCreation, ScoreCommentUpdate, ScoreCommentsCounts, ScoreCreation, ScoreData, ScoreDataEncoding, ScoreFork, ScoreLikesCounts, ScoreModification, ScorePrivacy, ScoreRevision, ScoreRevisionCreation, ScoreRevisionStatistics, ScoreRights, ScoreSource, ScoreSummary, ScoreViewsCounts, UserAdminUpdate, UserBasics, UserCreation, UserDetailsAdminLicense, UserInstruments, ScoreDetails, UserPublicSummary, UserDetailsAdmin, UserPublic, UserDetails, AccountApi, ClassApi, GroupApi, OrganizationApi, ScoreApi, UserApi) {
   'use strict';
 
   /**
@@ -7848,6 +7998,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
      */
     ClassDetailsCanvas: ClassDetailsCanvas,
     /**
+     * The ClassDetailsClever model constructor.
+     * @property {module:model/ClassDetailsClever}
+     */
+    ClassDetailsClever: ClassDetailsClever,
+    /**
      * The ClassDetailsGoogleClassroom model constructor.
      * @property {module:model/ClassDetailsGoogleClassroom}
      */
@@ -7872,11 +8027,6 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * @property {module:model/ClassState}
      */
     ClassState: ClassState,
-    /**
-     * The ClassStreamPostMode model constructor.
-     * @property {module:model/ClassStreamPostMode}
-     */
-    ClassStreamPostMode: ClassStreamPostMode,
     /**
      * The ClassUpdate model constructor.
      * @property {module:model/ClassUpdate}
@@ -8073,6 +8223,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
      */
     ScoreViewsCounts: ScoreViewsCounts,
     /**
+     * The UserAdminUpdate model constructor.
+     * @property {module:model/UserAdminUpdate}
+     */
+    UserAdminUpdate: UserAdminUpdate,
+    /**
      * The UserBasics model constructor.
      * @property {module:model/UserBasics}
      */
@@ -8087,6 +8242,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * @property {module:model/UserDetailsAdminLicense}
      */
     UserDetailsAdminLicense: UserDetailsAdminLicense,
+    /**
+     * The UserInstruments model constructor.
+     * @property {module:model/UserInstruments}
+     */
+    UserInstruments: UserInstruments,
     /**
      * The ScoreDetails model constructor.
      * @property {module:model/ScoreDetails}
@@ -8147,7 +8307,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
   return exports;
 }));
 
-},{"./ApiClient":16,"./api/AccountApi":17,"./api/ClassApi":18,"./api/GroupApi":19,"./api/OrganizationApi":20,"./api/ScoreApi":21,"./api/UserApi":22,"./model/Assignment":24,"./model/AssignmentCopy":25,"./model/AssignmentCreation":26,"./model/AssignmentSubmission":27,"./model/AssignmentSubmissionUpdate":28,"./model/ClassAttachmentCreation":29,"./model/ClassCreation":30,"./model/ClassDetails":31,"./model/ClassDetailsCanvas":32,"./model/ClassDetailsGoogleClassroom":33,"./model/ClassDetailsGoogleDrive":34,"./model/ClassDetailsLti":35,"./model/ClassRoles":36,"./model/ClassState":37,"./model/ClassStreamPostMode":38,"./model/ClassUpdate":39,"./model/FlatErrorResponse":40,"./model/FlatLocales":41,"./model/GoogleClassroomCoursework":42,"./model/GoogleClassroomSubmission":43,"./model/Group":44,"./model/GroupDetails":45,"./model/GroupType":46,"./model/LicenseMode":47,"./model/LicenseSources":48,"./model/LmsName":49,"./model/LtiCredentials":50,"./model/LtiCredentialsCreation":51,"./model/MediaAttachment":52,"./model/MediaScoreSharingMode":53,"./model/OrganizationInvitation":54,"./model/OrganizationInvitationCreation":55,"./model/OrganizationRoles":56,"./model/ScoreCollaborator":57,"./model/ScoreCollaboratorCreation":58,"./model/ScoreComment":59,"./model/ScoreCommentContext":60,"./model/ScoreCommentCreation":61,"./model/ScoreCommentUpdate":62,"./model/ScoreCommentsCounts":63,"./model/ScoreCreation":64,"./model/ScoreData":65,"./model/ScoreDataEncoding":66,"./model/ScoreDetails":67,"./model/ScoreFork":68,"./model/ScoreLikesCounts":69,"./model/ScoreModification":70,"./model/ScorePrivacy":71,"./model/ScoreRevision":72,"./model/ScoreRevisionCreation":73,"./model/ScoreRevisionStatistics":74,"./model/ScoreRights":75,"./model/ScoreSource":76,"./model/ScoreSummary":77,"./model/ScoreViewsCounts":78,"./model/UserBasics":79,"./model/UserCreation":80,"./model/UserDetails":81,"./model/UserDetailsAdmin":82,"./model/UserDetailsAdminLicense":83,"./model/UserPublic":84,"./model/UserPublicSummary":85}],24:[function(require,module,exports){
+},{"./ApiClient":16,"./api/AccountApi":17,"./api/ClassApi":18,"./api/GroupApi":19,"./api/OrganizationApi":20,"./api/ScoreApi":21,"./api/UserApi":22,"./model/Assignment":24,"./model/AssignmentCopy":25,"./model/AssignmentCreation":26,"./model/AssignmentSubmission":27,"./model/AssignmentSubmissionUpdate":28,"./model/ClassAttachmentCreation":29,"./model/ClassCreation":30,"./model/ClassDetails":31,"./model/ClassDetailsCanvas":32,"./model/ClassDetailsClever":33,"./model/ClassDetailsGoogleClassroom":34,"./model/ClassDetailsGoogleDrive":35,"./model/ClassDetailsLti":36,"./model/ClassRoles":37,"./model/ClassState":38,"./model/ClassUpdate":39,"./model/FlatErrorResponse":40,"./model/FlatLocales":41,"./model/GoogleClassroomCoursework":42,"./model/GoogleClassroomSubmission":43,"./model/Group":44,"./model/GroupDetails":45,"./model/GroupType":46,"./model/LicenseMode":47,"./model/LicenseSources":48,"./model/LmsName":49,"./model/LtiCredentials":50,"./model/LtiCredentialsCreation":51,"./model/MediaAttachment":52,"./model/MediaScoreSharingMode":53,"./model/OrganizationInvitation":54,"./model/OrganizationInvitationCreation":55,"./model/OrganizationRoles":56,"./model/ScoreCollaborator":57,"./model/ScoreCollaboratorCreation":58,"./model/ScoreComment":59,"./model/ScoreCommentContext":60,"./model/ScoreCommentCreation":61,"./model/ScoreCommentUpdate":62,"./model/ScoreCommentsCounts":63,"./model/ScoreCreation":64,"./model/ScoreData":65,"./model/ScoreDataEncoding":66,"./model/ScoreDetails":67,"./model/ScoreFork":68,"./model/ScoreLikesCounts":69,"./model/ScoreModification":70,"./model/ScorePrivacy":71,"./model/ScoreRevision":72,"./model/ScoreRevisionCreation":73,"./model/ScoreRevisionStatistics":74,"./model/ScoreRights":75,"./model/ScoreSource":76,"./model/ScoreSummary":77,"./model/ScoreViewsCounts":78,"./model/UserAdminUpdate":79,"./model/UserBasics":80,"./model/UserCreation":81,"./model/UserDetails":82,"./model/UserDetailsAdmin":83,"./model/UserDetailsAdminLicense":84,"./model/UserInstruments":85,"./model/UserPublic":86,"./model/UserPublicSummary":87}],24:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -8320,6 +8480,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
    * @readonly
    */
   exports.StateEnum = {
+    /**
+     * value: "draft"
+     * @const
+     */
+    "draft": "draft",
     /**
      * value: "active"
      * @const
@@ -8953,7 +9118,12 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * value: "link"
      * @const
      */
-    "link": "link"  };
+    "link": "link",
+    /**
+     * value: "exercise"
+     * @const
+     */
+    "exercise": "exercise"  };
 
 
   return exports;
@@ -9077,18 +9247,18 @@ exports.cleanHeader = function(header, shouldStripCookie){
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassDetailsCanvas', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassState', 'model/GroupDetails'], factory);
+    define(['ApiClient', 'model/ClassDetailsCanvas', 'model/ClassDetailsClever', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassState', 'model/GroupDetails'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassDetailsCanvas'), require('./ClassDetailsGoogleClassroom'), require('./ClassDetailsGoogleDrive'), require('./ClassDetailsLti'), require('./ClassState'), require('./GroupDetails'));
+    module.exports = factory(require('../ApiClient'), require('./ClassDetailsCanvas'), require('./ClassDetailsClever'), require('./ClassDetailsGoogleClassroom'), require('./ClassDetailsGoogleDrive'), require('./ClassDetailsLti'), require('./ClassState'), require('./GroupDetails'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.ClassDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassDetailsCanvas, root.FlatApi.ClassDetailsGoogleClassroom, root.FlatApi.ClassDetailsGoogleDrive, root.FlatApi.ClassDetailsLti, root.FlatApi.ClassState, root.FlatApi.GroupDetails);
+    root.FlatApi.ClassDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassDetailsCanvas, root.FlatApi.ClassDetailsClever, root.FlatApi.ClassDetailsGoogleClassroom, root.FlatApi.ClassDetailsGoogleDrive, root.FlatApi.ClassDetailsLti, root.FlatApi.ClassState, root.FlatApi.GroupDetails);
   }
-}(this, function(ApiClient, ClassDetailsCanvas, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassState, GroupDetails) {
+}(this, function(ApiClient, ClassDetailsCanvas, ClassDetailsClever, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassState, GroupDetails) {
   'use strict';
 
 
@@ -9108,6 +9278,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
    */
   var exports = function() {
     var _this = this;
+
 
 
 
@@ -9189,6 +9360,9 @@ exports.cleanHeader = function(header, shouldStripCookie){
       }
       if (data.hasOwnProperty('canvas')) {
         obj['canvas'] = ClassDetailsCanvas.constructFromObject(data['canvas']);
+      }
+      if (data.hasOwnProperty('clever')) {
+        obj['clever'] = ClassDetailsClever.constructFromObject(data['clever']);
       }
     }
     return obj;
@@ -9272,6 +9446,10 @@ exports.cleanHeader = function(header, shouldStripCookie){
    * @member {module:model/ClassDetailsCanvas} canvas
    */
   exports.prototype['canvas'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsClever} clever
+   */
+  exports.prototype['clever'] = undefined;
 
 
 
@@ -9280,7 +9458,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16,"./ClassDetailsCanvas":32,"./ClassDetailsGoogleClassroom":33,"./ClassDetailsGoogleDrive":34,"./ClassDetailsLti":35,"./ClassState":37,"./GroupDetails":45}],32:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassDetailsCanvas":32,"./ClassDetailsClever":33,"./ClassDetailsGoogleClassroom":34,"./ClassDetailsGoogleDrive":35,"./ClassDetailsLti":36,"./ClassState":38,"./GroupDetails":45}],32:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9333,6 +9511,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
     var _this = this;
 
 
+
   };
 
   /**
@@ -9349,6 +9528,9 @@ exports.cleanHeader = function(header, shouldStripCookie){
       if (data.hasOwnProperty('id')) {
         obj['id'] = ApiClient.convertToType(data['id'], 'String');
       }
+      if (data.hasOwnProperty('domain')) {
+        obj['domain'] = ApiClient.convertToType(data['domain'], 'String');
+      }
     }
     return obj;
   }
@@ -9358,6 +9540,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
    * @member {String} id
    */
   exports.prototype['id'] = undefined;
+  /**
+   * Canvas instance domain (e.g. \"canvas.instructure.com\")
+   * @member {String} domain
+   */
+  exports.prototype['domain'] = undefined;
 
 
 
@@ -9367,6 +9554,208 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 },{"../ApiClient":16}],33:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.ClassDetailsClever = factory(root.FlatApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ClassDetailsClever model module.
+   * @module model/ClassDetailsClever
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>ClassDetailsClever</code>.
+   * Clever.com section-related information
+   * @alias module:model/ClassDetailsClever
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>ClassDetailsClever</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ClassDetailsClever} obj Optional instance to populate.
+   * @return {module:model/ClassDetailsClever} The populated <code>ClassDetailsClever</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('creationDate')) {
+        obj['creationDate'] = ApiClient.convertToType(data['creationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('modificationDate')) {
+        obj['modificationDate'] = ApiClient.convertToType(data['modificationDate'], 'Date');
+      }
+      if (data.hasOwnProperty('subject')) {
+        obj['subject'] = ApiClient.convertToType(data['subject'], 'String');
+      }
+      if (data.hasOwnProperty('termName')) {
+        obj['termName'] = ApiClient.convertToType(data['termName'], 'String');
+      }
+      if (data.hasOwnProperty('termStartDate')) {
+        obj['termStartDate'] = ApiClient.convertToType(data['termStartDate'], 'Date');
+      }
+      if (data.hasOwnProperty('termEndDate')) {
+        obj['termEndDate'] = ApiClient.convertToType(data['termEndDate'], 'Date');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Clever section unique identifier
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The creation date of the section on clever
+   * @member {Date} creationDate
+   */
+  exports.prototype['creationDate'] = undefined;
+  /**
+   * The last modification date of the section on clever
+   * @member {Date} modificationDate
+   */
+  exports.prototype['modificationDate'] = undefined;
+  /**
+   * Normalized subject of the course
+   * @member {module:model/ClassDetailsClever.SubjectEnum} subject
+   */
+  exports.prototype['subject'] = undefined;
+  /**
+   * Name of the term when this course happens
+   * @member {String} termName
+   */
+  exports.prototype['termName'] = undefined;
+  /**
+   * Beginning date of the term
+   * @member {Date} termStartDate
+   */
+  exports.prototype['termStartDate'] = undefined;
+  /**
+   * End date of the term
+   * @member {Date} termEndDate
+   */
+  exports.prototype['termEndDate'] = undefined;
+
+
+  /**
+   * Allowed values for the <code>subject</code> property.
+   * @enum {String}
+   * @readonly
+   */
+  exports.SubjectEnum = {
+    /**
+     * value: "english/language arts"
+     * @const
+     */
+    "english/language arts": "english/language arts",
+    /**
+     * value: "math"
+     * @const
+     */
+    "math": "math",
+    /**
+     * value: "science"
+     * @const
+     */
+    "science": "science",
+    /**
+     * value: "social studies"
+     * @const
+     */
+    "social studies": "social studies",
+    /**
+     * value: "language"
+     * @const
+     */
+    "language": "language",
+    /**
+     * value: "homeroom/advisory"
+     * @const
+     */
+    "homeroom/advisory": "homeroom/advisory",
+    /**
+     * value: "interventions/online learning"
+     * @const
+     */
+    "interventions/online learning": "interventions/online learning",
+    /**
+     * value: "technology and engineering"
+     * @const
+     */
+    "technology and engineering": "technology and engineering",
+    /**
+     * value: "PE and health"
+     * @const
+     */
+    "PE and health": "PE and health",
+    /**
+     * value: "arts and music"
+     * @const
+     */
+    "arts and music": "arts and music",
+    /**
+     * value: "other"
+     * @const
+     */
+    "other": "other"  };
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],34:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9479,7 +9868,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16}],34:[function(require,module,exports){
+},{"../ApiClient":16}],35:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9574,7 +9963,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16}],35:[function(require,module,exports){
+},{"../ApiClient":16}],36:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9678,7 +10067,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16}],36:[function(require,module,exports){
+},{"../ApiClient":16}],37:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9744,7 +10133,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16}],37:[function(require,module,exports){
+},{"../ApiClient":16}],38:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -9791,6 +10180,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
      */
     "active": "active",
     /**
+     * value: "inactive"
+     * @const
+     */
+    "inactive": "inactive",
+    /**
      * value: "archived"
      * @const
      */
@@ -9800,77 +10194,6 @@ exports.cleanHeader = function(header, shouldStripCookie){
    * Returns a <code>ClassState</code> enum value from a Javascript object name.
    * @param {Object} data The plain JavaScript object containing the name of the enum value.
    * @return {module:model/ClassState} The enum <code>ClassState</code> value.
-   */
-  exports.constructFromObject = function(object) {
-    return object;
-  }
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":16}],38:[function(require,module,exports){
-/**
- * Flat API
- * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
- *
- * OpenAPI spec version: 2.2.0
- * Contact: developers@flat.io
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- *
- * Swagger Codegen version: 2.2.3-SNAPSHOT
- *
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.FlatApi) {
-      root.FlatApi = {};
-    }
-    root.FlatApi.ClassStreamPostMode = factory(root.FlatApi.ApiClient);
-  }
-}(this, function(ApiClient) {
-  'use strict';
-
-
-  /**
-   * Enum class ClassStreamPostMode.
-   * @enum {}
-   * @readonly
-   */
-  var exports = {
-    /**
-     * value: "everybodyCanPost"
-     * @const
-     */
-    "everybodyCanPost": "everybodyCanPost",
-    /**
-     * value: "everybodyCanComment"
-     * @const
-     */
-    "everybodyCanComment": "everybodyCanComment",
-    /**
-     * value: "teachersCanPost"
-     * @const
-     */
-    "teachersCanPost": "teachersCanPost"  };
-
-  /**
-   * Returns a <code>ClassStreamPostMode</code> enum value from a Javascript object name.
-   * @param {Object} data The plain JavaScript object containing the name of the enum value.
-   * @return {module:model/ClassStreamPostMode} The enum <code>ClassStreamPostMode</code> value.
    */
   exports.constructFromObject = function(object) {
     return object;
@@ -11317,6 +11640,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
+
   };
 
   /**
@@ -11338,6 +11662,9 @@ exports.cleanHeader = function(header, shouldStripCookie){
       }
       if (data.hasOwnProperty('revision')) {
         obj['revision'] = ApiClient.convertToType(data['revision'], 'String');
+      }
+      if (data.hasOwnProperty('correct')) {
+        obj['correct'] = ApiClient.convertToType(data['correct'], 'Boolean');
       }
       if (data.hasOwnProperty('sharingMode')) {
         obj['sharingMode'] = MediaScoreSharingMode.constructFromObject(data['sharingMode']);
@@ -11394,6 +11721,11 @@ exports.cleanHeader = function(header, shouldStripCookie){
    * @member {String} revision
    */
   exports.prototype['revision'] = undefined;
+  /**
+   * If the attachment is an exercise question, this state will describe if it is correct or not.For exercise assignments only.
+   * @member {Boolean} correct
+   */
+  exports.prototype['correct'] = undefined;
   /**
    * @member {module:model/MediaScoreSharingMode} sharingMode
    */
@@ -11485,7 +11817,12 @@ exports.cleanHeader = function(header, shouldStripCookie){
      * value: "flat"
      * @const
      */
-    "flat": "flat"  };
+    "flat": "flat",
+    /**
+     * value: "exercise"
+     * @const
+     */
+    "exercise": "exercise"  };
 
 
   return exports;
@@ -12023,7 +12360,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 
 
 
-},{"../ApiClient":16,"./Group":44,"./UserPublic":84}],58:[function(require,module,exports){
+},{"../ApiClient":16,"./Group":44,"./UserPublic":86}],58:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -13360,7 +13697,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ScoreCollaborator":57,"./ScoreCommentsCounts":63,"./ScoreLikesCounts":69,"./ScorePrivacy":71,"./ScoreRights":75,"./ScoreSummary":77,"./ScoreViewsCounts":78,"./UserPublicSummary":85}],68:[function(require,module,exports){
+},{"../ApiClient":16,"./ScoreCollaborator":57,"./ScoreCommentsCounts":63,"./ScoreLikesCounts":69,"./ScorePrivacy":71,"./ScoreRights":75,"./ScoreSummary":77,"./ScoreViewsCounts":78,"./UserPublicSummary":87}],68:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14376,7 +14713,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ScorePrivacy":71,"./UserPublicSummary":85}],78:[function(require,module,exports){
+},{"../ApiClient":16,"./ScorePrivacy":71,"./UserPublicSummary":87}],78:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14481,6 +14818,100 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 },{"../ApiClient":16}],79:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/OrganizationRoles'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./OrganizationRoles'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.UserAdminUpdate = factory(root.FlatApi.ApiClient, root.FlatApi.OrganizationRoles);
+  }
+}(this, function(ApiClient, OrganizationRoles) {
+  'use strict';
+
+
+
+
+  /**
+   * The UserAdminUpdate model module.
+   * @module model/UserAdminUpdate
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>UserAdminUpdate</code>.
+   * User update as an organization admin
+   * @alias module:model/UserAdminUpdate
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+  };
+
+  /**
+   * Constructs a <code>UserAdminUpdate</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/UserAdminUpdate} obj Optional instance to populate.
+   * @return {module:model/UserAdminUpdate} The populated <code>UserAdminUpdate</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('password')) {
+        obj['password'] = ApiClient.convertToType(data['password'], 'String');
+      }
+      if (data.hasOwnProperty('organizationRole')) {
+        obj['organizationRole'] = OrganizationRoles.constructFromObject(data['organizationRole']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * Password of the new account
+   * @member {String} password
+   */
+  exports.prototype['password'] = undefined;
+  /**
+   * @member {module:model/OrganizationRoles} organizationRole
+   */
+  exports.prototype['organizationRole'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16,"./OrganizationRoles":56}],80:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14610,7 +15041,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16}],80:[function(require,module,exports){
+},{"../ApiClient":16}],81:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14724,7 +15155,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./FlatLocales":41}],81:[function(require,module,exports){
+},{"../ApiClient":16,"./FlatLocales":41}],82:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14744,18 +15175,18 @@ exports.prototype['htmlUrl'] = undefined;
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassRoles', 'model/FlatLocales', 'model/OrganizationRoles', 'model/UserPublic'], factory);
+    define(['ApiClient', 'model/ClassRoles', 'model/FlatLocales', 'model/OrganizationRoles', 'model/UserInstruments', 'model/UserPublic'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./FlatLocales'), require('./OrganizationRoles'), require('./UserPublic'));
+    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./FlatLocales'), require('./OrganizationRoles'), require('./UserInstruments'), require('./UserPublic'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.UserDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.FlatLocales, root.FlatApi.OrganizationRoles, root.FlatApi.UserPublic);
+    root.FlatApi.UserDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.FlatLocales, root.FlatApi.OrganizationRoles, root.FlatApi.UserInstruments, root.FlatApi.UserPublic);
   }
-}(this, function(ApiClient, ClassRoles, FlatLocales, OrganizationRoles, UserPublic) {
+}(this, function(ApiClient, ClassRoles, FlatLocales, OrganizationRoles, UserInstruments, UserPublic) {
   'use strict';
 
 
@@ -14857,7 +15288,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ClassRoles":36,"./FlatLocales":41,"./OrganizationRoles":56,"./UserPublic":84}],82:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassRoles":37,"./FlatLocales":41,"./OrganizationRoles":56,"./UserInstruments":85,"./UserPublic":86}],83:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -14964,7 +15395,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserDetailsAdminLicense":83,"./UserPublicSummary":85}],83:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassRoles":37,"./OrganizationRoles":56,"./UserDetailsAdminLicense":84,"./UserPublicSummary":87}],84:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -15084,7 +15515,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./LicenseMode":47,"./LicenseSources":48}],84:[function(require,module,exports){
+},{"../ApiClient":16,"./LicenseMode":47,"./LicenseSources":48}],85:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -15104,18 +15535,100 @@ exports.prototype['htmlUrl'] = undefined;
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassRoles', 'model/OrganizationRoles', 'model/UserPublicSummary'], factory);
+    define(['ApiClient'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./OrganizationRoles'), require('./UserPublicSummary'));
+    module.exports = factory(require('../ApiClient'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.UserPublic = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.OrganizationRoles, root.FlatApi.UserPublicSummary);
+    root.FlatApi.UserInstruments = factory(root.FlatApi.ApiClient);
   }
-}(this, function(ApiClient, ClassRoles, OrganizationRoles, UserPublicSummary) {
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The UserInstruments model module.
+   * @module model/UserInstruments
+   * @version 2.2.0
+   */
+
+  /**
+   * Constructs a new <code>UserInstruments</code>.
+   * An array of the instrument identifiers that the user plays. This is mainly used to display a list of the instruments in the Flat&#39;s UI or instruments icons. The format of the strings is &#x60;{instrument-group}.{instrument-id}&#x60;. 
+   * @alias module:model/UserInstruments
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>UserInstruments</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/UserInstruments} obj Optional instance to populate.
+   * @return {module:model/UserInstruments} The populated <code>UserInstruments</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'String');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":16}],86:[function(require,module,exports){
+/**
+ * Flat API
+ * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
+ *
+ * OpenAPI spec version: 2.2.0
+ * Contact: developers@flat.io
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.2.3-SNAPSHOT
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/ClassRoles', 'model/OrganizationRoles', 'model/UserInstruments', 'model/UserPublicSummary'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./ClassRoles'), require('./OrganizationRoles'), require('./UserInstruments'), require('./UserPublicSummary'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.FlatApi) {
+      root.FlatApi = {};
+    }
+    root.FlatApi.UserPublic = factory(root.FlatApi.ApiClient, root.FlatApi.ClassRoles, root.FlatApi.OrganizationRoles, root.FlatApi.UserInstruments, root.FlatApi.UserPublicSummary);
+  }
+}(this, function(ApiClient, ClassRoles, OrganizationRoles, UserInstruments, UserPublicSummary) {
   'use strict';
 
 
@@ -15137,6 +15650,8 @@ exports.prototype['htmlUrl'] = undefined;
   var exports = function() {
     var _this = this;
     UserPublicSummary.call(_this);
+
+
 
 
 
@@ -15174,6 +15689,12 @@ exports.prototype['htmlUrl'] = undefined;
       if (data.hasOwnProperty('ownedPublicScoresCount')) {
         obj['ownedPublicScoresCount'] = ApiClient.convertToType(data['ownedPublicScoresCount'], 'Number');
       }
+      if (data.hasOwnProperty('profileTheme')) {
+        obj['profileTheme'] = ApiClient.convertToType(data['profileTheme'], 'String');
+      }
+      if (data.hasOwnProperty('instruments')) {
+        obj['instruments'] = UserInstruments.constructFromObject(data['instruments']);
+      }
     }
     return obj;
   }
@@ -15207,10 +15728,19 @@ exports.prototype['htmlUrl'] = undefined;
    */
   exports.prototype['followingCount'] = undefined;
   /**
-   * Number of public score the user have
+   * Number of public scores the user have
    * @member {Number} ownedPublicScoresCount
    */
   exports.prototype['ownedPublicScoresCount'] = undefined;
+  /**
+   * Theme (background) for the profile
+   * @member {String} profileTheme
+   */
+  exports.prototype['profileTheme'] = undefined;
+  /**
+   * @member {module:model/UserInstruments} instruments
+   */
+  exports.prototype['instruments'] = undefined;
 
 
 
@@ -15219,7 +15749,7 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserPublicSummary":85}],85:[function(require,module,exports){
+},{"../ApiClient":16,"./ClassRoles":37,"./OrganizationRoles":56,"./UserInstruments":85,"./UserPublicSummary":87}],87:[function(require,module,exports){
 /**
  * Flat API
  * The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:  * Creating and importing new music scores using MusicXML or MIDI files * Browsing, updating, copying, exporting the user's scores (for example in MP3, WAV or MIDI) * Managing educational resources with Flat for Education: creating & updating the organization accounts, the classes, rosters and assignments.  The Flat API is built on HTTP. Our API is RESTful It has predictable resource URLs. It returns HTTP response codes to indicate errors. It also accepts and returns JSON in the HTTP body. The [schema](/swagger.yaml) of this API follows the [OpenAPI Initiative (OAI) specification](https://www.openapis.org/), you can use and work with [compatible Swagger tools](http://swagger.io/open-source-integrations/). This API features Cross-Origin Resource Sharing (CORS) implemented in compliance with [W3C spec](https://www.w3.org/TR/cors/).  You can use your favorite HTTP/REST library for your programming language to use Flat's API. This specification and reference is [available on Github](https://github.com/FlatIO/api-reference).  Getting Started and learn more:  * [API Overview and interoduction](https://flat.io/developers/docs/api/) * [Authentication (Personal Access Tokens or OAuth2)](https://flat.io/developers/docs/api/authentication.html) * [SDKs](https://flat.io/developers/docs/api/sdks.html) * [Rate Limits](https://flat.io/developers/docs/api/rate-limits.html) * [Changelog](https://flat.io/developers/docs/api/changelog.html) 
@@ -15334,4 +15864,4 @@ exports.prototype['htmlUrl'] = undefined;
 
 
 
-},{"../ApiClient":16,"./ClassRoles":36,"./OrganizationRoles":56,"./UserBasics":79}]},{},[23]);
+},{"../ApiClient":16,"./ClassRoles":37,"./OrganizationRoles":56,"./UserBasics":80}]},{},[23]);

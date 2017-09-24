@@ -17,18 +17,18 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/ClassDetailsCanvas', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassState', 'model/GroupDetails'], factory);
+    define(['ApiClient', 'model/ClassDetailsCanvas', 'model/ClassDetailsClever', 'model/ClassDetailsGoogleClassroom', 'model/ClassDetailsGoogleDrive', 'model/ClassDetailsLti', 'model/ClassState', 'model/GroupDetails'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./ClassDetailsCanvas'), require('./ClassDetailsGoogleClassroom'), require('./ClassDetailsGoogleDrive'), require('./ClassDetailsLti'), require('./ClassState'), require('./GroupDetails'));
+    module.exports = factory(require('../ApiClient'), require('./ClassDetailsCanvas'), require('./ClassDetailsClever'), require('./ClassDetailsGoogleClassroom'), require('./ClassDetailsGoogleDrive'), require('./ClassDetailsLti'), require('./ClassState'), require('./GroupDetails'));
   } else {
     // Browser globals (root is window)
     if (!root.FlatApi) {
       root.FlatApi = {};
     }
-    root.FlatApi.ClassDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassDetailsCanvas, root.FlatApi.ClassDetailsGoogleClassroom, root.FlatApi.ClassDetailsGoogleDrive, root.FlatApi.ClassDetailsLti, root.FlatApi.ClassState, root.FlatApi.GroupDetails);
+    root.FlatApi.ClassDetails = factory(root.FlatApi.ApiClient, root.FlatApi.ClassDetailsCanvas, root.FlatApi.ClassDetailsClever, root.FlatApi.ClassDetailsGoogleClassroom, root.FlatApi.ClassDetailsGoogleDrive, root.FlatApi.ClassDetailsLti, root.FlatApi.ClassState, root.FlatApi.GroupDetails);
   }
-}(this, function(ApiClient, ClassDetailsCanvas, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassState, GroupDetails) {
+}(this, function(ApiClient, ClassDetailsCanvas, ClassDetailsClever, ClassDetailsGoogleClassroom, ClassDetailsGoogleDrive, ClassDetailsLti, ClassState, GroupDetails) {
   'use strict';
 
 
@@ -48,6 +48,7 @@
    */
   var exports = function() {
     var _this = this;
+
 
 
 
@@ -129,6 +130,9 @@
       }
       if (data.hasOwnProperty('canvas')) {
         obj['canvas'] = ClassDetailsCanvas.constructFromObject(data['canvas']);
+      }
+      if (data.hasOwnProperty('clever')) {
+        obj['clever'] = ClassDetailsClever.constructFromObject(data['clever']);
       }
     }
     return obj;
@@ -212,6 +216,10 @@
    * @member {module:model/ClassDetailsCanvas} canvas
    */
   exports.prototype['canvas'] = undefined;
+  /**
+   * @member {module:model/ClassDetailsClever} clever
+   */
+  exports.prototype['clever'] = undefined;
 
 
 

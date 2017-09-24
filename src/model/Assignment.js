@@ -171,6 +171,11 @@
    */
   exports.StateEnum = {
     /**
+     * value: "draft"
+     * @const
+     */
+    "draft": "draft",
+    /**
      * value: "active"
      * @const
      */
