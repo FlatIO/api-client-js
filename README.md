@@ -186,9 +186,11 @@ Class | Method | HTTP request | Description
  - [FlatApi.ScoreCommentUpdate](docs/ScoreCommentUpdate.md)
  - [FlatApi.ScoreCommentsCounts](docs/ScoreCommentsCounts.md)
  - [FlatApi.ScoreCreation](docs/ScoreCreation.md)
+ - [FlatApi.ScoreCreationType](docs/ScoreCreationType.md)
  - [FlatApi.ScoreData](docs/ScoreData.md)
  - [FlatApi.ScoreDataEncoding](docs/ScoreDataEncoding.md)
  - [FlatApi.ScoreFork](docs/ScoreFork.md)
+ - [FlatApi.ScoreLicense](docs/ScoreLicense.md)
  - [FlatApi.ScoreLikesCounts](docs/ScoreLikesCounts.md)
  - [FlatApi.ScoreModification](docs/ScoreModification.md)
  - [FlatApi.ScorePrivacy](docs/ScorePrivacy.md)
@@ -234,3 +236,4 @@ Class | Method | HTTP request | Description
   - edu.admin.lti.readonly: Read-only access to the LTI Credentials of an organization.
   - edu.admin.users: Access and manage the users and invitations of the organization.
   - edu.admin.users.readonly: Read-only access to the users and invitations of the organization.
+

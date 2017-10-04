@@ -16,54 +16,46 @@
 
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
+    // AMD.
+    define(['expect.js', '../../src/index'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
+    factory(require('expect.js'), require('../../src/index'));
   } else {
     // Browser globals (root is window)
-    if (!root.FlatApi) {
-      root.FlatApi = {};
-    }
-    root.FlatApi.MediaScoreSharingMode = factory(root.FlatApi.ApiClient);
+    factory(root.expect, root.FlatApi);
   }
-}(this, function(ApiClient) {
+}(this, function(expect, FlatApi) {
   'use strict';
 
+  var instance;
 
-  /**
-   * Enum class MediaScoreSharingMode.
-   * @enum {}
-   * @readonly
-   */
-  var exports = {
-    /**
-     * value: "read"
-     * @const
-     */
-    "read": "read",
-    /**
-     * value: "write"
-     * @const
-     */
-    "write": "write",
-    /**
-     * value: "copy"
-     * @const
-     */
-    "copy": "copy"  };
+  beforeEach(function() {
+  });
 
-  /**
-   * Returns a <code>MediaScoreSharingMode</code> enum value from a Javascript object name.
-   * @param {Object} data The plain JavaScript object containing the name of the enum value.
-   * @return {module:model/MediaScoreSharingMode} The enum <code>MediaScoreSharingMode</code> value.
-   */
-  exports.constructFromObject = function(object) {
-    return object;
+  var getProperty = function(object, getter, property) {
+    // Use getter method if present; otherwise, get the property directly.
+    if (typeof object[getter] === 'function')
+      return object[getter]();
+    else
+      return object[property];
   }
 
-  return exports;
+  var setProperty = function(object, setter, property, value) {
+    // Use setter method if present; otherwise, set the property directly.
+    if (typeof object[setter] === 'function')
+      object[setter](value);
+    else
+      object[property] = value;
+  }
+
+  describe('ScoreCreationType', function() {
+    it('should create an instance of ScoreCreationType', function() {
+      // uncomment below and update the code to test ScoreCreationType
+      //var instane = new FlatApi.ScoreCreationType();
+      //expect(instance).to.be.a(FlatApi.ScoreCreationType);
+    });
+
+  });
+
 }));
-
-
