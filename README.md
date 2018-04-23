@@ -102,6 +102,15 @@ Class | Method | HTTP request | Description
 *FlatApi.ClassApi* | [**listClasses**](docs/ClassApi.md#listClasses) | **GET** /classes | List the classes available for the current user
 *FlatApi.ClassApi* | [**unarchiveClass**](docs/ClassApi.md#unarchiveClass) | **DELETE** /classes/{class}/archive | Unarchive the class
 *FlatApi.ClassApi* | [**updateClass**](docs/ClassApi.md#updateClass) | **PUT** /classes/{class} | Update the class
+*FlatApi.CollectionApi* | [**addScoreToCollection**](docs/CollectionApi.md#addScoreToCollection) | **PUT** /collections/{collection}/scores/{score} | Add a score to the collection
+*FlatApi.CollectionApi* | [**createCollection**](docs/CollectionApi.md#createCollection) | **POST** /collections | Create a new collection
+*FlatApi.CollectionApi* | [**deleteCollection**](docs/CollectionApi.md#deleteCollection) | **DELETE** /collections/{collection} | Delete the collection
+*FlatApi.CollectionApi* | [**deleteScoreFromCollection**](docs/CollectionApi.md#deleteScoreFromCollection) | **DELETE** /collections/{collection}/scores/{score} | Delete a score from the collection
+*FlatApi.CollectionApi* | [**editCollection**](docs/CollectionApi.md#editCollection) | **PUT** /collections/{collection} | Update a collection&#39;s metadata
+*FlatApi.CollectionApi* | [**getCollection**](docs/CollectionApi.md#getCollection) | **GET** /collections/{collection} | Get collection details
+*FlatApi.CollectionApi* | [**listCollectionScores**](docs/CollectionApi.md#listCollectionScores) | **GET** /collections/{collection}/scores | List the scores contained in a collection
+*FlatApi.CollectionApi* | [**listCollections**](docs/CollectionApi.md#listCollections) | **GET** /collections | List the collections
+*FlatApi.CollectionApi* | [**untrashCollection**](docs/CollectionApi.md#untrashCollection) | **POST** /collections/{collection}/untrash | Untrash a collection
 *FlatApi.GroupApi* | [**getGroupDetails**](docs/GroupApi.md#getGroupDetails) | **GET** /groups/{group} | Get group information
 *FlatApi.GroupApi* | [**getGroupScores**](docs/GroupApi.md#getGroupScores) | **GET** /groups/{group}/scores | List group&#39;s scores
 *FlatApi.GroupApi* | [**listGroupUsers**](docs/GroupApi.md#listGroupUsers) | **GET** /groups/{group}/users | List group&#39;s users
@@ -116,10 +125,12 @@ Class | Method | HTTP request | Description
 *FlatApi.OrganizationApi* | [**revokeLtiCredentials**](docs/OrganizationApi.md#revokeLtiCredentials) | **DELETE** /organizations/lti/credentials/{credentials} | Revoke LTI 1.x credentials
 *FlatApi.OrganizationApi* | [**updateOrganizationUser**](docs/OrganizationApi.md#updateOrganizationUser) | **PUT** /organizations/users/{user} | Update account information
 *FlatApi.ScoreApi* | [**addScoreCollaborator**](docs/ScoreApi.md#addScoreCollaborator) | **POST** /scores/{score}/collaborators | Add a new collaborator
+*FlatApi.ScoreApi* | [**addScoreTrack**](docs/ScoreApi.md#addScoreTrack) | **POST** /scores/{score}/tracks | Add a new video or audio track to the score
 *FlatApi.ScoreApi* | [**createScore**](docs/ScoreApi.md#createScore) | **POST** /scores | Create a new score
 *FlatApi.ScoreApi* | [**createScoreRevision**](docs/ScoreApi.md#createScoreRevision) | **POST** /scores/{score}/revisions | Create a new revision
 *FlatApi.ScoreApi* | [**deleteScore**](docs/ScoreApi.md#deleteScore) | **DELETE** /scores/{score} | Delete a score
 *FlatApi.ScoreApi* | [**deleteScoreComment**](docs/ScoreApi.md#deleteScoreComment) | **DELETE** /scores/{score}/comments/{comment} | Delete a comment
+*FlatApi.ScoreApi* | [**deleteScoreTrack**](docs/ScoreApi.md#deleteScoreTrack) | **DELETE** /scores/{score}/tracks/{track} | Remove an audio or video track linked to the score
 *FlatApi.ScoreApi* | [**editScore**](docs/ScoreApi.md#editScore) | **PUT** /scores/{score} | Edit a score&#39;s metadata
 *FlatApi.ScoreApi* | [**forkScore**](docs/ScoreApi.md#forkScore) | **POST** /scores/{score}/fork | Fork a score
 *FlatApi.ScoreApi* | [**gerUserLikes**](docs/ScoreApi.md#gerUserLikes) | **GET** /users/{user}/likes | List liked scores
@@ -132,12 +143,16 @@ Class | Method | HTTP request | Description
 *FlatApi.ScoreApi* | [**getScoreRevisionData**](docs/ScoreApi.md#getScoreRevisionData) | **GET** /scores/{score}/revisions/{revision}/{format} | Get a score revision data
 *FlatApi.ScoreApi* | [**getScoreRevisions**](docs/ScoreApi.md#getScoreRevisions) | **GET** /scores/{score}/revisions | List the revisions
 *FlatApi.ScoreApi* | [**getScoreSubmissions**](docs/ScoreApi.md#getScoreSubmissions) | **GET** /scores/{score}/submissions | List submissions related to the score
+*FlatApi.ScoreApi* | [**getScoreTrack**](docs/ScoreApi.md#getScoreTrack) | **GET** /scores/{score}/tracks/{track} | Retrieve the details of an audio or video track linked to a score
 *FlatApi.ScoreApi* | [**getUserScores**](docs/ScoreApi.md#getUserScores) | **GET** /users/{user}/scores | List user&#39;s scores
+*FlatApi.ScoreApi* | [**listScoreTracks**](docs/ScoreApi.md#listScoreTracks) | **GET** /scores/{score}/tracks | List the audio or video tracks linked to a score
 *FlatApi.ScoreApi* | [**markScoreCommentResolved**](docs/ScoreApi.md#markScoreCommentResolved) | **PUT** /scores/{score}/comments/{comment}/resolved | Mark the comment as resolved
 *FlatApi.ScoreApi* | [**markScoreCommentUnresolved**](docs/ScoreApi.md#markScoreCommentUnresolved) | **DELETE** /scores/{score}/comments/{comment}/resolved | Mark the comment as unresolved
 *FlatApi.ScoreApi* | [**postScoreComment**](docs/ScoreApi.md#postScoreComment) | **POST** /scores/{score}/comments | Post a new comment
 *FlatApi.ScoreApi* | [**removeScoreCollaborator**](docs/ScoreApi.md#removeScoreCollaborator) | **DELETE** /scores/{score}/collaborators/{collaborator} | Delete a collaborator
+*FlatApi.ScoreApi* | [**untrashScore**](docs/ScoreApi.md#untrashScore) | **POST** /scores/{score}/untrash | Untrash a score
 *FlatApi.ScoreApi* | [**updateScoreComment**](docs/ScoreApi.md#updateScoreComment) | **PUT** /scores/{score}/comments/{comment} | Update an existing comment
+*FlatApi.ScoreApi* | [**updateScoreTrack**](docs/ScoreApi.md#updateScoreTrack) | **PUT** /scores/{score}/tracks/{track} | Update an audio or video track linked to a score
 *FlatApi.UserApi* | [**gerUserLikes**](docs/UserApi.md#gerUserLikes) | **GET** /users/{user}/likes | List liked scores
 *FlatApi.UserApi* | [**getUser**](docs/UserApi.md#getUser) | **GET** /users/{user} | Get a public user profile
 *FlatApi.UserApi* | [**getUserScores**](docs/UserApi.md#getUserScores) | **GET** /users/{user}/scores | List user&#39;s scores
@@ -161,6 +176,13 @@ Class | Method | HTTP request | Description
  - [FlatApi.ClassRoles](docs/ClassRoles.md)
  - [FlatApi.ClassState](docs/ClassState.md)
  - [FlatApi.ClassUpdate](docs/ClassUpdate.md)
+ - [FlatApi.Collection](docs/Collection.md)
+ - [FlatApi.CollectionCapabilities](docs/CollectionCapabilities.md)
+ - [FlatApi.CollectionCreation](docs/CollectionCreation.md)
+ - [FlatApi.CollectionModification](docs/CollectionModification.md)
+ - [FlatApi.CollectionPrivacy](docs/CollectionPrivacy.md)
+ - [FlatApi.CollectionTitle](docs/CollectionTitle.md)
+ - [FlatApi.CollectionType](docs/CollectionType.md)
  - [FlatApi.FlatErrorResponse](docs/FlatErrorResponse.md)
  - [FlatApi.FlatLocales](docs/FlatLocales.md)
  - [FlatApi.GoogleClassroomCoursework](docs/GoogleClassroomCoursework.md)
@@ -178,8 +200,9 @@ Class | Method | HTTP request | Description
  - [FlatApi.OrganizationInvitation](docs/OrganizationInvitation.md)
  - [FlatApi.OrganizationInvitationCreation](docs/OrganizationInvitationCreation.md)
  - [FlatApi.OrganizationRoles](docs/OrganizationRoles.md)
- - [FlatApi.ScoreCollaborator](docs/ScoreCollaborator.md)
- - [FlatApi.ScoreCollaboratorCreation](docs/ScoreCollaboratorCreation.md)
+ - [FlatApi.ResourceCollaboratorCreation](docs/ResourceCollaboratorCreation.md)
+ - [FlatApi.ResourceRights](docs/ResourceRights.md)
+ - [FlatApi.ResourceSharingKey](docs/ResourceSharingKey.md)
  - [FlatApi.ScoreComment](docs/ScoreComment.md)
  - [FlatApi.ScoreCommentContext](docs/ScoreCommentContext.md)
  - [FlatApi.ScoreCommentCreation](docs/ScoreCommentCreation.md)
@@ -197,15 +220,21 @@ Class | Method | HTTP request | Description
  - [FlatApi.ScoreRevision](docs/ScoreRevision.md)
  - [FlatApi.ScoreRevisionCreation](docs/ScoreRevisionCreation.md)
  - [FlatApi.ScoreRevisionStatistics](docs/ScoreRevisionStatistics.md)
- - [FlatApi.ScoreRights](docs/ScoreRights.md)
  - [FlatApi.ScoreSource](docs/ScoreSource.md)
  - [FlatApi.ScoreSummary](docs/ScoreSummary.md)
+ - [FlatApi.ScoreTrack](docs/ScoreTrack.md)
+ - [FlatApi.ScoreTrackCreation](docs/ScoreTrackCreation.md)
+ - [FlatApi.ScoreTrackPoint](docs/ScoreTrackPoint.md)
+ - [FlatApi.ScoreTrackState](docs/ScoreTrackState.md)
+ - [FlatApi.ScoreTrackType](docs/ScoreTrackType.md)
+ - [FlatApi.ScoreTrackUpdate](docs/ScoreTrackUpdate.md)
  - [FlatApi.ScoreViewsCounts](docs/ScoreViewsCounts.md)
  - [FlatApi.UserAdminUpdate](docs/UserAdminUpdate.md)
  - [FlatApi.UserBasics](docs/UserBasics.md)
  - [FlatApi.UserCreation](docs/UserCreation.md)
  - [FlatApi.UserDetailsAdminLicense](docs/UserDetailsAdminLicense.md)
  - [FlatApi.UserInstruments](docs/UserInstruments.md)
+ - [FlatApi.ResourceCollaborator](docs/ResourceCollaborator.md)
  - [FlatApi.ScoreDetails](docs/ScoreDetails.md)
  - [FlatApi.UserPublicSummary](docs/UserPublicSummary.md)
  - [FlatApi.UserDetailsAdmin](docs/UserDetailsAdmin.md)
@@ -221,12 +250,15 @@ Class | Method | HTTP request | Description
 - **Type**: OAuth
 - **Flow**: accessCode
 - **Authorization URL**: https://flat.io/auth/oauth
-- **Scopes**:
-  - account.public_profile: Provides access to the basic person&#39;s public profile. Education profiles may be anonymized with this scope, you can request the scope &#x60;education_profile&#x60; to access to the a basic education account profile.
-  - account.education_profile: Provides access to the basic person&#39;s education profile and public organization information.
-  - scores.readonly: Allows read-only access to all a user&#39;s scores. You won&#39;t need this scope to read public scores.
-  - scores.social: Allow to post comments and like scores
-  - scores: Full, permissive scope to access all of a user&#39;s scores.
+- **Scopes**: 
+  - account.public_profile: Provides access to the basic person&#39;s public profile. Education profiles may be anonymized with this scope, you can request the scope &#x60;education_profile&#x60; to access to the a basic education account profile. 
+  - account.education_profile: Provides access to the basic person&#39;s education profile and public organization information. 
+  - scores.readonly: Allows read-only access to all a user&#39;s scores. You won&#39;t need this scope to read public scores. 
+  - scores.social: Allow to post comments and like scores 
+  - scores: Full, permissive scope to access all of a user&#39;s scores. 
+  - collections.readonly: Allow read-only access to a user&#39;s collections.
+  - collections.add_scores: Allow to add scores to a user&#39;s collections.
+  - collections: Full, permissive scope to access all of a user&#39;s collections.
   - edu.classes: Full, permissive scope to manage the classes.
   - edu.classes.readonly: Read-only access to the classes.
   - edu.assignments: Read-write access to the assignments and submissions.

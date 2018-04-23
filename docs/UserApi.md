@@ -119,7 +119,7 @@ Name | Type | Description  | Notes
 
 List user&#39;s scores
 
-Get the list of scores owned by the User 
+Get the list of public scores owned by a User.  **DEPRECATED**: Please note that the current behavior will be deprecrated on **2019-01-01**. This method will no longer list private and shared scores, but only public scores of a Flat account. If you want to access to private scores, please use the [Collections API](#tag/Collection) instead. 
 
 ### Example
 ```javascript

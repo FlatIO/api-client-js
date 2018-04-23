@@ -617,7 +617,7 @@ Name | Type | Description  | Notes
 
 <a name="getScoreSubmissions"></a>
 # **getScoreSubmissions**
-> [AssignmentSubmission] getScoreSubmissions(score, )
+> [AssignmentSubmission] getScoreSubmissions(score)
 
 List submissions related to the score
 
@@ -644,7 +644,7 @@ var callback = function(error, data, response) {
     console.log('API called successfully. Returned data: ' + data);
   }
 };
-apiInstance.getScoreSubmissions(score, , callback);
+apiInstance.getScoreSubmissions(score, callback);
 ```
 
 ### Parameters
