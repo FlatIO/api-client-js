@@ -1,9 +1,7 @@
 # JavaScript (Browser & Node.js) Client for the Flat REST API
 
 [![Build Status](https://img.shields.io/travis/FlatIO/api-client-js.svg?style=flat)](https://travis-ci.org/FlatIO/api-client-js)
-[![Greenkeeper badge](https://badges.greenkeeper.io/FlatIO/api-client-js.svg)](https://greenkeeper.io/)
 [![NPM Version](https://img.shields.io/npm/v/flat-api.svg?style=flat)](https://www.npmjs.org/package/flat-api)
-![Bower Version](https://img.shields.io/bower/v/flat-api.svg?style=flat)
 
 The Flat API allows you to easily extend the abilities of the [Flat Platform](https://flat.io), with a wide range of use cases including the following:
 - Creating and importing new music scores using MusicXML or MIDI files
