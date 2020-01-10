@@ -1,6 +1,7 @@
 # FlatApi.ResourceCollaboratorCreation
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **user** | **String** | The unique identifier of a Flat user | [optional] 

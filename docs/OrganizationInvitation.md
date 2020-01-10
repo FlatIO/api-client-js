@@ -1,6 +1,7 @@
 # FlatApi.OrganizationInvitation
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | The invitation unique identifier | [optional] 

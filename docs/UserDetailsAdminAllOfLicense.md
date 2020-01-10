@@ -1,6 +1,7 @@
-# FlatApi.UserDetailsAdminLicense
+# FlatApi.UserDetailsAdminAllOfLicense
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | ID of the current license | [optional] 

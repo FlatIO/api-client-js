@@ -15,8 +15,9 @@ Method | HTTP request | Description
 [**untrashCollection**](CollectionApi.md#untrashCollection) | **POST** /collections/{collection}/untrash | Untrash a collection
 
 
-<a name="addScoreToCollection"></a>
-# **addScoreToCollection**
+
+## addScoreToCollection
+
 > ScoreDetails addScoreToCollection(collection, score, opts)
 
 Add a score to the collection
@@ -24,35 +25,31 @@ Add a score to the collection
 This operation will add a score to a collection. The default behavior will make the score available across multiple collections. You must have the capability &#x60;canAddScores&#x60; on the provided &#x60;collection&#x60; to perform the action. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
-
-var opts = { 
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+let score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
+let opts = {
   'sharingKey': "sharingKey_example" // String | This sharing key must be specified to access to a score or collection with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.addScoreToCollection(collection, score, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.addScoreToCollection(collection, score, opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -70,11 +67,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="createCollection"></a>
-# **createCollection**
+
+## createCollection
+
 > Collection createCollection(body)
 
 Create a new collection
@@ -82,30 +80,27 @@ Create a new collection
 This method will create a new collection and add it to your &#x60;root&#x60; collection. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var body = new FlatApi.CollectionCreation(); // CollectionCreation | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.CollectionApi();
+let body = new FlatApi.CollectionCreation(); // CollectionCreation | 
+apiInstance.createCollection(body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createCollection(body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -121,42 +116,40 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="deleteCollection"></a>
-# **deleteCollection**
-> deleteCollection(collection, )
+
+## deleteCollection
+
+> deleteCollection(collection)
 
 Delete the collection
 
 This method will schedule the deletion of the collection. Until deleted, the collection will be available in the &#x60;trash&#x60;. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+apiInstance.deleteCollection(collection, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.deleteCollection(collection, , callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -172,11 +165,12 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="deleteScoreFromCollection"></a>
-# **deleteScoreFromCollection**
+
+## deleteScoreFromCollection
+
 > deleteScoreFromCollection(collection, score)
 
 Delete a score from the collection
@@ -184,32 +178,28 @@ Delete a score from the collection
 This method will delete a score from the collection. Unlike [&#x60;DELETE /scores/{score}&#x60;](#operation/deleteScore), this score will not remove the score from your account, but only from the collection. This can be used to *move* a score from one collection to another, or simply remove a score from one collection when this one is contained in multiple collections. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+let score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
+apiInstance.deleteScoreFromCollection(collection, score, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.deleteScoreFromCollection(collection, score, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -226,43 +216,41 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="editCollection"></a>
-# **editCollection**
-> Collection editCollection(collection, , opts)
+
+## editCollection
+
+> Collection editCollection(collection, opts)
 
 Update a collection&#39;s metadata
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-var opts = { 
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+let opts = {
   'body': new FlatApi.CollectionModification() // CollectionModification | 
 };
-
-var callback = function(error, data, response) {
+apiInstance.editCollection(collection, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.editCollection(collection, , opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -279,43 +267,41 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="getCollection"></a>
-# **getCollection**
-> Collection getCollection(collection, , opts)
+
+## getCollection
+
+> Collection getCollection(collection, opts)
 
 Get collection details
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-var opts = { 
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+let opts = {
   'sharingKey': "sharingKey_example" // String | This sharing key must be specified to access to a score or collection with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.getCollection(collection, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getCollection(collection, , opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -332,50 +318,48 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listCollectionScores"></a>
-# **listCollectionScores**
-> [ScoreDetails] listCollectionScores(collection, , opts)
+
+## listCollectionScores
+
+> [ScoreDetails] listCollectionScores(collection, opts)
 
 List the scores contained in a collection
 
 Use this method to list the scores contained in a collection. If no sort option is provided, the scores are sorted by &#x60;modificationDate&#x60; &#x60;desc&#x60;. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-var opts = { 
-  'sharingKey': "sharingKey_example" // String | This sharing key must be specified to access to a score or collection with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+let opts = {
+  'sharingKey': "sharingKey_example", // String | This sharing key must be specified to access to a score or collection with a `privacy` mode set to `privateLink` and the current user is not a collaborator of the document. 
   'sort': "sort_example", // String | Sort
   'direction': "direction_example", // String | Sort direction
   'limit': 25, // Number | This is the maximum number of objects that may be returned
   'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
   'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.listCollectionScores(collection, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listCollectionScores(collection, , opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -397,11 +381,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listCollections"></a>
-# **listCollections**
+
+## listCollections
+
 > [Collection] listCollections(opts)
 
 List the collections
@@ -409,40 +394,38 @@ List the collections
 Use this method to list the user&#39;s collections contained in &#x60;parent&#x60; (by default in the &#x60;root&#x60; collection). If no sort option is provided, the collections are sorted by &#x60;creationDate&#x60; &#x60;desc&#x60;.  Note that this method will not include the &#x60;parent&#x60; collection in the listing. For example, if you need the details of the &#x60;root&#x60; collection, you can use &#x60;GET /v2/collections/root&#x60;. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var opts = { 
-  'parent': "root", // String | List the collection contained in this `parent` collection.  This option doesn't provide a complete multi-level collection support. When sharing a collection with someone, this one will have as `parent` `sharedWithMe`. 
+let apiInstance = new FlatApi.CollectionApi();
+let opts = {
+  'parent': "'root'", // String | List the collection contained in this `parent` collection.  This option doesn't provide a complete multi-level collection support. When sharing a collection with someone, this one will have as `parent` `sharedWithMe`. 
   'sort': "sort_example", // String | Sort
   'direction': "direction_example", // String | Sort direction
   'limit': 25, // Number | This is the maximum number of objects that may be returned
   'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
   'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.listCollections(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listCollections(opts, callback);
+});
 ```
 
 ### Parameters
 
+
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **parent** | **String**| List the collection contained in this &#x60;parent&#x60; collection.  This option doesn&#39;t provide a complete multi-level collection support. When sharing a collection with someone, this one will have as &#x60;parent&#x60; &#x60;sharedWithMe&#x60;.  | [optional] [default to root]
+ **parent** | **String**| List the collection contained in this &#x60;parent&#x60; collection.  This option doesn&#39;t provide a complete multi-level collection support. When sharing a collection with someone, this one will have as &#x60;parent&#x60; &#x60;sharedWithMe&#x60;.  | [optional] [default to &#39;root&#39;]
  **sort** | **String**| Sort | [optional] 
  **direction** | **String**| Sort direction | [optional] 
  **limit** | **Number**| This is the maximum number of objects that may be returned | [optional] [default to 25]
@@ -459,42 +442,40 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="untrashCollection"></a>
-# **untrashCollection**
-> untrashCollection(collection, )
+
+## untrashCollection
+
+> untrashCollection(collection)
 
 Untrash a collection
 
 This method will restore the collection by removing it from the &#x60;trash&#x60; and add it back to the &#x60;root&#x60; collection. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.CollectionApi();
-
-var collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.CollectionApi();
+let collection = "collection_example"; // String | Unique identifier of the collection. The following aliases are supported: - `root`: The root collection of the account - `sharedWithMe`: Automatically contains new resources that have been shared individually - `trash`: Automatically contains resources that have been deleted 
+apiInstance.untrashCollection(collection, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.untrashCollection(collection, , callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -510,6 +491,6 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 

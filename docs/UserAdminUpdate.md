@@ -1,6 +1,7 @@
 # FlatApi.UserAdminUpdate
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **password** | **String** | Password of the new account | [optional] 

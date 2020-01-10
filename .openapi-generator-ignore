@@ -1,5 +1,3 @@
 # Swagger Codegen Ignore
 .gitignore
-.travis.yml
 git_push.sh
-package.json

@@ -1,6 +1,7 @@
 # FlatApi.AssignmentCreation
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **title** | **String** | Title of the assignment | [optional] 

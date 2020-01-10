@@ -1,6 +1,7 @@
 # FlatApi.ClassDetailsClever
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | Clever section unique identifier | [optional] 
@@ -12,7 +13,7 @@ Name | Type | Description | Notes
 **termEndDate** | **Date** | End date of the term | [optional] 
 
 
-<a name="SubjectEnum"></a>
+
 ## Enum: SubjectEnum
 
 

@@ -1,6 +1,7 @@
 # FlatApi.ScoreLikesCounts
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **total** | **Number** | The total number of likes of the score | [optional] 

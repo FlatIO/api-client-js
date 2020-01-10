@@ -1,8 +1,10 @@
 # FlatApi.CollectionCreation
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**title** | [**CollectionTitle**](CollectionTitle.md) |  | 
+**title** | **String** | The title of the collection | 
+**privacy** | [**CollectionPrivacy**](CollectionPrivacy.md) |  | 
 
 

@@ -16,8 +16,9 @@ Method | HTTP request | Description
 [**updateOrganizationUser**](OrganizationApi.md#updateOrganizationUser) | **PUT** /organizations/users/{user} | Update account information
 
 
-<a name="createLtiCredentials"></a>
-# **createLtiCredentials**
+
+## createLtiCredentials
+
 > LtiCredentials createLtiCredentials(body)
 
 Create a new couple of LTI 1.x credentials
@@ -25,30 +26,27 @@ Create a new couple of LTI 1.x credentials
 Flat for Education is a Certified LTI Provider. You can use these API methods to automate the creation of LTI credentials. You can read more about our LTI implementation, supported components and LTI Endpoints in our [Developer Documentation](https://flat.io/developers/docs/lti/). 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var body = new FlatApi.LtiCredentialsCreation(); // LtiCredentialsCreation | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.OrganizationApi();
+let body = new FlatApi.LtiCredentialsCreation(); // LtiCredentialsCreation | 
+apiInstance.createLtiCredentials(body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createLtiCredentials(body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -64,11 +62,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="createOrganizationInvitation"></a>
-# **createOrganizationInvitation**
+
+## createOrganizationInvitation
+
 > OrganizationInvitation createOrganizationInvitation(opts)
 
 Create a new invitation to join the organization
@@ -76,31 +75,29 @@ Create a new invitation to join the organization
 This method creates and sends invitation for teachers and admins.  Invitations can only be used by new Flat users or users who are not part of the organization yet.  If the email of the user is already associated to a user of your organization, the API will simply update the role of the existing user and won&#39;t send an invitation. In this case, the property &#x60;usedBy&#x60; will be directly filled with the uniquer identifier of the corresponding user. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var opts = { 
+let apiInstance = new FlatApi.OrganizationApi();
+let opts = {
   'body': new FlatApi.OrganizationInvitationCreation() // OrganizationInvitationCreation | 
 };
-
-var callback = function(error, data, response) {
+apiInstance.createOrganizationInvitation(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createOrganizationInvitation(opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -116,41 +113,40 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="createOrganizationUser"></a>
-# **createOrganizationUser**
+
+## createOrganizationUser
+
 > UserDetailsAdmin createOrganizationUser(opts)
 
 Create a new user account
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var opts = { 
+let apiInstance = new FlatApi.OrganizationApi();
+let opts = {
   'body': new FlatApi.UserCreation() // UserCreation | 
 };
-
-var callback = function(error, data, response) {
+apiInstance.createOrganizationUser(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createOrganizationUser(opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -166,37 +162,37 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="listLtiCredentials"></a>
-# **listLtiCredentials**
+
+## listLtiCredentials
+
 > [LtiCredentials] listLtiCredentials()
 
 List LTI 1.x credentials
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.OrganizationApi();
+apiInstance.listLtiCredentials((error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listLtiCredentials(callback);
+});
 ```
 
 ### Parameters
+
 This endpoint does not need any parameter.
 
 ### Return type
@@ -209,44 +205,43 @@ This endpoint does not need any parameter.
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listOrganizationInvitations"></a>
-# **listOrganizationInvitations**
+
+## listOrganizationInvitations
+
 > [OrganizationInvitation] listOrganizationInvitations(opts)
 
 List the organization invitations
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var opts = { 
+let apiInstance = new FlatApi.OrganizationApi();
+let opts = {
   'role': "role_example", // String | Filter users by role
   'limit': 50, // Number | This is the maximum number of objects that may be returned
   'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
   'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.listOrganizationInvitations(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listOrganizationInvitations(opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -265,44 +260,43 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listOrganizationUsers"></a>
-# **listOrganizationUsers**
+
+## listOrganizationUsers
+
 > [UserDetailsAdmin] listOrganizationUsers(opts)
 
 List the organization users
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var opts = { 
+let apiInstance = new FlatApi.OrganizationApi();
+let opts = {
   'role': "role_example", // String | Filter users by role
   'limit': 50, // Number | This is the maximum number of objects that may be returned
   'next': "next_example", // String | An opaque string cursor to fetch the next page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
   'previous': "previous_example" // String | An opaque string cursor to fetch the previous page of data. The paginated API URLs are returned in the `Link` header when requesting the API. These URLs will contain a `next` and `previous` cursor based on the available data. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.listOrganizationUsers(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listOrganizationUsers(opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -321,40 +315,38 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="removeOrganizationInvitation"></a>
-# **removeOrganizationInvitation**
+
+## removeOrganizationInvitation
+
 > removeOrganizationInvitation(invitation)
 
 Remove an organization invitation
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var invitation = "invitation_example"; // String | Unique identifier of the invitation
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.OrganizationApi();
+let invitation = "invitation_example"; // String | Unique identifier of the invitation
+apiInstance.removeOrganizationInvitation(invitation, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.removeOrganizationInvitation(invitation, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -370,11 +362,12 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="removeOrganizationUser"></a>
-# **removeOrganizationUser**
+
+## removeOrganizationUser
+
 > removeOrganizationUser(user, opts)
 
 Remove an account from Flat
@@ -382,33 +375,30 @@ Remove an account from Flat
 This operation removes an account from Flat and its data, including: * The music scores created by this user (documents, history, comments, collaboration information) * Education related data (assignments and classroom information) 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var user = "user_example"; // String | Unique identifier of the Flat account 
-
-var opts = { 
+let apiInstance = new FlatApi.OrganizationApi();
+let user = "user_example"; // String | Unique identifier of the Flat account 
+let opts = {
   'convertToIndividual': true // Boolean | If `true`, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal. 
 };
-
-var callback = function(error, data, response) {
+apiInstance.removeOrganizationUser(user, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.removeOrganizationUser(user, opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -425,40 +415,38 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="revokeLtiCredentials"></a>
-# **revokeLtiCredentials**
+
+## revokeLtiCredentials
+
 > revokeLtiCredentials(credentials)
 
 Revoke LTI 1.x credentials
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var credentials = "credentials_example"; // String | Credentials unique identifier 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.OrganizationApi();
+let credentials = "credentials_example"; // String | Credentials unique identifier 
+apiInstance.revokeLtiCredentials(credentials, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.revokeLtiCredentials(credentials, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -474,42 +462,39 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="updateOrganizationUser"></a>
-# **updateOrganizationUser**
-> UserDetailsAdmin updateOrganizationUser(userbody)
+
+## updateOrganizationUser
+
+> UserDetailsAdmin updateOrganizationUser(user, body)
 
 Update account information
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.OrganizationApi();
-
-var user = "user_example"; // String | Unique identifier of the Flat account 
-
-var body = new FlatApi.UserAdminUpdate(); // UserAdminUpdate | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.OrganizationApi();
+let user = "user_example"; // String | Unique identifier of the Flat account 
+let body = new FlatApi.UserAdminUpdate(); // UserAdminUpdate | 
+apiInstance.updateOrganizationUser(user, body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.updateOrganizationUser(userbody, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -526,6 +511,6 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 

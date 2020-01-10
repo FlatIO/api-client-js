@@ -1,6 +1,7 @@
 # FlatApi.AssignmentSubmissionUpdate
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **attachments** | [**[ClassAttachmentCreation]**](ClassAttachmentCreation.md) |  | [optional] 

@@ -1,6 +1,7 @@
 # FlatApi.LtiCredentials
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | The unique identifier of this couple of credentials | [optional] 

@@ -15,6 +15,8 @@
 
 * `sakai` (value: `"sakai"`)
 
+* `schoolbox` (value: `"schoolbox"`)
+
 * `other` (value: `"other"`)
 
 

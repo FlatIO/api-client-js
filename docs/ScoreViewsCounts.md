@@ -1,6 +1,7 @@
 # FlatApi.ScoreViewsCounts
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **total** | **Number** | The total number of views of the score | [optional] 

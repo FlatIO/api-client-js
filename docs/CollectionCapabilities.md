@@ -1,6 +1,7 @@
 # FlatApi.CollectionCapabilities
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **canEdit** | **Boolean** | Whether the current user can modify the metadata for the collection  | [optional] 

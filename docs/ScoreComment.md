@@ -1,6 +1,7 @@
 # FlatApi.ScoreComment
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | The comment unique identifier | [optional] 
@@ -20,7 +21,7 @@ Name | Type | Description | Notes
 **spam** | **Boolean** | &#x60;true  if the message has been detected as spam and hidden from other users  | [optional] 
 
 
-<a name="TypeEnum"></a>
+
 ## Enum: TypeEnum
 
 

@@ -1,6 +1,7 @@
 # FlatApi.Group
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | The unique identifier of the group | [optional] 
@@ -12,7 +13,7 @@ Name | Type | Description | Notes
 **creationDate** | **Date** | The creation date of the group | [optional] 
 
 
-<a name="TypeEnum"></a>
+
 ## Enum: TypeEnum
 
 

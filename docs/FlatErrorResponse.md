@@ -1,6 +1,7 @@
 # FlatApi.FlatErrorResponse
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **code** | **String** | A corresponding code for this error | [optional] 

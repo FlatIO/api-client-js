@@ -9,37 +9,35 @@ Method | HTTP request | Description
 [**listGroupUsers**](GroupApi.md#listGroupUsers) | **GET** /groups/{group}/users | List group&#39;s users
 
 
-<a name="getGroupDetails"></a>
-# **getGroupDetails**
+
+## getGroupDetails
+
 > GroupDetails getGroupDetails(group)
 
 Get group information
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.GroupApi();
-
-var group = "group_example"; // String | Unique identifier of a Flat group 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.GroupApi();
+let group = "group_example"; // String | Unique identifier of a Flat group 
+apiInstance.getGroupDetails(group, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getGroupDetails(group, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -55,11 +53,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="getGroupScores"></a>
-# **getGroupScores**
+
+## getGroupScores
+
 > [ScoreDetails] getGroupScores(group, opts)
 
 List group&#39;s scores
@@ -67,33 +66,30 @@ List group&#39;s scores
 Get the list of scores shared with a group. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.GroupApi();
-
-var group = "group_example"; // String | Unique identifier of a Flat group 
-
-var opts = { 
+let apiInstance = new FlatApi.GroupApi();
+let group = "group_example"; // String | Unique identifier of a Flat group 
+let opts = {
   'parent': "parent_example" // String | Filter the score forked from the score id `parent`
 };
-
-var callback = function(error, data, response) {
+apiInstance.getGroupScores(group, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getGroupScores(group, opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -110,40 +106,38 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listGroupUsers"></a>
-# **listGroupUsers**
+
+## listGroupUsers
+
 > [UserPublic] listGroupUsers(group)
 
 List group&#39;s users
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.GroupApi();
-
-var group = "group_example"; // String | Unique identifier of a Flat group 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.GroupApi();
+let group = "group_example"; // String | Unique identifier of a Flat group 
+apiInstance.listGroupUsers(group, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listGroupUsers(group, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -159,6 +153,6 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 

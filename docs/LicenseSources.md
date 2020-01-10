@@ -13,4 +13,6 @@
 
 * `subscription` (value: `"subscription"`)
 
+* `appStore` (value: `"appStore"`)
+
 

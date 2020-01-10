@@ -1,6 +1,7 @@
 # FlatApi.ClassDetailsLti
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **contextId** | **String** | Unique context identifier provided | [optional] 

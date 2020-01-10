@@ -1,6 +1,7 @@
 # FlatApi.ScoreCommentsCounts
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **total** | **Number** | The total number of comments added on the score | [optional] 

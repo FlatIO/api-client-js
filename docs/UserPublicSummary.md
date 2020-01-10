@@ -1,6 +1,7 @@
 # FlatApi.UserPublicSummary
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **organization** | **String** | Organization ID (for Edu users only) | [optional] 

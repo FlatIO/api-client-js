@@ -25,8 +25,9 @@ Method | HTTP request | Description
 [**updateClass**](ClassApi.md#updateClass) | **PUT** /classes/{class} | Update the class
 
 
-<a name="activateClass"></a>
-# **activateClass**
+
+## activateClass
+
 > ClassDetails activateClass(_class)
 
 Activate the class
@@ -34,30 +35,27 @@ Activate the class
 Mark the class as &#x60;active&#x60;. This is mainly used for classes synchronized from Clever that are initially with an &#x60;inactive&#x60; state and hidden in the UI. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+apiInstance.activateClass(_class, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.activateClass(_class, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -73,11 +71,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="addClassUser"></a>
-# **addClassUser**
+
+## addClassUser
+
 > addClassUser(_class, user)
 
 Add a user to the class
@@ -85,32 +84,28 @@ Add a user to the class
 This method can be used by a teacher of the class to enroll another Flat user into the class.  Only users that are part of your Organization can be enrolled in a class of this same Organization.  When enrolling a user in the class, Flat will automatically add this user to the corresponding Class group, based on this role in the Organization. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var user = "user_example"; // String | Unique identifier of the user
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let user = "user_example"; // String | Unique identifier of the user
+apiInstance.addClassUser(_class, user, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.addClassUser(_class, user, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -127,11 +122,12 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="archiveClass"></a>
-# **archiveClass**
+
+## archiveClass
+
 > ClassDetails archiveClass(_class)
 
 Archive the class
@@ -139,30 +135,27 @@ Archive the class
 Mark the class as &#x60;archived&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+apiInstance.archiveClass(_class, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.archiveClass(_class, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -178,11 +171,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="copyAssignment"></a>
-# **copyAssignment**
+
+## copyAssignment
+
 > Assignment copyAssignment(_class, assignment, body)
 
 Copy an assignment
@@ -190,34 +184,29 @@ Copy an assignment
 Copy an assignment to a specified class.  If the original assignment has a due date in the past, this new assingment will be created without a due date.  If the new class is synchronized with an external app (e.g. Google Classroom), the copied assignment will also be posted on the external app. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var assignment = "assignment_example"; // String | Unique identifier of the assignment
-
-var body = new FlatApi.AssignmentCopy(); // AssignmentCopy | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let assignment = "assignment_example"; // String | Unique identifier of the assignment
+let body = new FlatApi.AssignmentCopy(); // AssignmentCopy | 
+apiInstance.copyAssignment(_class, assignment, body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.copyAssignment(_class, assignment, body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -235,11 +224,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="createAssignment"></a>
-# **createAssignment**
+
+## createAssignment
+
 > Assignment createAssignment(_class, opts)
 
 Assignment creation
@@ -247,33 +237,30 @@ Assignment creation
 Use this method as a teacher to create and post a new assignment to a class.  If the class is synchronized with Google Classroom, the assignment will be automatically posted to your Classroom course. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var opts = { 
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let opts = {
   'body': new FlatApi.AssignmentCreation() // AssignmentCreation | 
 };
-
-var callback = function(error, data, response) {
+apiInstance.createAssignment(_class, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createAssignment(_class, opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -290,11 +277,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="createClass"></a>
-# **createClass**
+
+## createClass
+
 > ClassDetails createClass(body)
 
 Create a new class
@@ -302,30 +290,27 @@ Create a new class
 Classrooms on Flat allow you to create activities with assignments and post content to a specific group.  When creating a class, Flat automatically creates two groups: one for the teachers of the course, one for the students. The creator of this class is automatically added to the teachers group.  If the classsroom is synchronized with another application like Google Classroom, some of the meta information will automatically be updated.  You can add users to this class using &#x60;POST /classes/{class}/users/{user}&#x60;, they will automatically added to the group based on their role on Flat. Users can also enroll themselves to this class using &#x60;POST /classes/enroll/{enrollmentCode}&#x60; and the &#x60;enrollmentCode&#x60; returned in the &#x60;ClassDetails&#x60; response. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var body = new FlatApi.ClassCreation(); // ClassCreation | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let body = new FlatApi.ClassCreation(); // ClassCreation | 
+apiInstance.createClass(body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createClass(body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -341,11 +326,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="createSubmission"></a>
-# **createSubmission**
+
+## createSubmission
+
 > AssignmentSubmission createSubmission(_class, assignment, body)
 
 Create or edit a submission
@@ -353,34 +339,29 @@ Create or edit a submission
 Use this method as a student to create, update and submit a submission related to an assignment. Students can only set &#x60;attachments&#x60;, &#x60;studentComment&#x60; and &#x60;submit&#x60;.  Teachers can use &#x60;PUT /classes/{class}/assignments/{assignment}/submissions/{submission}&#x60; to update a submission by id. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var assignment = "assignment_example"; // String | Unique identifier of the assignment
-
-var body = new FlatApi.AssignmentSubmissionUpdate(); // AssignmentSubmissionUpdate | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let assignment = "assignment_example"; // String | Unique identifier of the assignment
+let body = new FlatApi.AssignmentSubmissionUpdate(); // AssignmentSubmissionUpdate | 
+apiInstance.createSubmission(_class, assignment, body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.createSubmission(_class, assignment, body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -398,11 +379,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="deleteClassUser"></a>
-# **deleteClassUser**
+
+## deleteClassUser
+
 > deleteClassUser(_class, user)
 
 Remove a user from the class
@@ -410,32 +392,28 @@ Remove a user from the class
 This method can be used by a teacher to remove a user from the class, or by a student to leave the classroom.  Warning: Removing a user from the class will remove the associated resources, including the submissions and feedback related to these submissions. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var user = "user_example"; // String | Unique identifier of the user
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let user = "user_example"; // String | Unique identifier of the user
+apiInstance.deleteClassUser(_class, user, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully.');
   }
-};
-apiInstance.deleteClassUser(_class, user, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -452,11 +430,12 @@ null (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="editSubmission"></a>
-# **editSubmission**
+
+## editSubmission
+
 > AssignmentSubmission editSubmission(_class, assignment, submission, body)
 
 Edit a submission
@@ -464,36 +443,30 @@ Edit a submission
 Use this method as a teacher to update the different submission and give feedback. Teachers can only set &#x60;returnFeedback&#x60; 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var assignment = "assignment_example"; // String | Unique identifier of the assignment
-
-var submission = "submission_example"; // String | Unique identifier of the submission
-
-var body = new FlatApi.AssignmentSubmissionUpdate(); // AssignmentSubmissionUpdate | 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let assignment = "assignment_example"; // String | Unique identifier of the assignment
+let submission = "submission_example"; // String | Unique identifier of the submission
+let body = new FlatApi.AssignmentSubmissionUpdate(); // AssignmentSubmissionUpdate | 
+apiInstance.editSubmission(_class, assignment, submission, body, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.editSubmission(_class, assignment, submission, body, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -512,11 +485,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 
-<a name="enrollClass"></a>
-# **enrollClass**
+
+## enrollClass
+
 > ClassDetails enrollClass(enrollmentCode)
 
 Join a class
@@ -524,30 +498,27 @@ Join a class
 Use this method to join a class using an enrollment code given one of the teacher of this class. This code is also available in the &#x60;ClassDetails&#x60; returned to the teachers when creating the class or listing / fetching a specific class.  Flat will automatically add the user to the corresponding class group based on this role in the organization. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var enrollmentCode = "enrollmentCode_example"; // String | The enrollment code, available to the teacher in `ClassDetails` 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let enrollmentCode = "enrollmentCode_example"; // String | The enrollment code, available to the teacher in `ClassDetails` 
+apiInstance.enrollClass(enrollmentCode, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.enrollClass(enrollmentCode, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -563,40 +534,38 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="getClass"></a>
-# **getClass**
+
+## getClass
+
 > ClassDetails getClass(_class)
 
 Get the details of a single class
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+apiInstance.getClass(_class, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getClass(_class, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -612,11 +581,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="getScoreSubmissions"></a>
-# **getScoreSubmissions**
+
+## getScoreSubmissions
+
 > [AssignmentSubmission] getScoreSubmissions(score)
 
 List submissions related to the score
@@ -624,30 +594,27 @@ List submissions related to the score
 This API call will list the different assignments submissions where the score is attached. This method can be used by anyone that are part of the organization and have at least read access to the document. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let score = "score_example"; // String | Unique identifier of the score document. This can be a Flat Score unique identifier (i.e. `ScoreDetails.id`) or, if the score is also a Google Drive file, the Drive file unique identifier prefixed with `drive-` (e.g. `drive-0B000000000`). 
+apiInstance.getScoreSubmissions(score, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getScoreSubmissions(score, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -663,44 +630,40 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="getSubmission"></a>
-# **getSubmission**
+
+## getSubmission
+
 > AssignmentSubmission getSubmission(_class, assignment, submission)
 
 Get a student submission
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var assignment = "assignment_example"; // String | Unique identifier of the assignment
-
-var submission = "submission_example"; // String | Unique identifier of the submission
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let assignment = "assignment_example"; // String | Unique identifier of the assignment
+let submission = "submission_example"; // String | Unique identifier of the submission
+apiInstance.getSubmission(_class, assignment, submission, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getSubmission(_class, assignment, submission, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -718,42 +681,39 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="getSubmissions"></a>
-# **getSubmissions**
+
+## getSubmissions
+
 > [AssignmentSubmission] getSubmissions(_class, assignment)
 
 List the students&#39; submissions
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var assignment = "assignment_example"; // String | Unique identifier of the assignment
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let assignment = "assignment_example"; // String | Unique identifier of the assignment
+apiInstance.getSubmissions(_class, assignment, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.getSubmissions(_class, assignment, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -770,40 +730,38 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listAssignments"></a>
-# **listAssignments**
+
+## listAssignments
+
 > [Assignment] listAssignments(_class)
 
 Assignments listing
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+apiInstance.listAssignments(_class, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listAssignments(_class, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -819,11 +777,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listClassStudentSubmissions"></a>
-# **listClassStudentSubmissions**
+
+## listClassStudentSubmissions
+
 > [AssignmentSubmission] listClassStudentSubmissions(_class, user)
 
 List the submissions for a student
@@ -831,32 +790,28 @@ List the submissions for a student
 Use this method as a teacher to list all the assignment submissions sent by a student of the class 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var user = "user_example"; // String | Unique identifier of the user
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let user = "user_example"; // String | Unique identifier of the user
+apiInstance.listClassStudentSubmissions(_class, user, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listClassStudentSubmissions(_class, user, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -873,45 +828,44 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="listClasses"></a>
-# **listClasses**
+
+## listClasses
+
 > [ClassDetails] listClasses(opts)
 
 List the classes available for the current user
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var opts = { 
-  'state': "active" // String | Filter the classes by state
+let apiInstance = new FlatApi.ClassApi();
+let opts = {
+  'state': "'active'" // String | Filter the classes by state
 };
-
-var callback = function(error, data, response) {
+apiInstance.listClasses(opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.listClasses(opts, callback);
+});
 ```
 
 ### Parameters
 
+
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **state** | **String**| Filter the classes by state | [optional] [default to active]
+ **state** | **String**| Filter the classes by state | [optional] [default to &#39;active&#39;]
 
 ### Return type
 
@@ -923,11 +877,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="unarchiveClass"></a>
-# **unarchiveClass**
+
+## unarchiveClass
+
 > ClassDetails unarchiveClass(_class)
 
 Unarchive the class
@@ -935,30 +890,27 @@ Unarchive the class
 Mark the class as &#x60;active&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-
-var callback = function(error, data, response) {
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+apiInstance.unarchiveClass(_class, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.unarchiveClass(_class, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -974,11 +926,12 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: Not defined
+- **Accept**: application/json
 
-<a name="updateClass"></a>
-# **updateClass**
+
+## updateClass
+
 > ClassDetails updateClass(_class, opts)
 
 Update the class
@@ -986,33 +939,30 @@ Update the class
 Update the meta information of the class 
 
 ### Example
-```javascript
-var FlatApi = require('flat-api');
-var defaultClient = FlatApi.ApiClient.instance;
 
+```javascript
+import FlatApi from 'flat-api';
+let defaultClient = FlatApi.ApiClient.instance;
 // Configure OAuth2 access token for authorization: OAuth2
-var OAuth2 = defaultClient.authentications['OAuth2'];
+let OAuth2 = defaultClient.authentications['OAuth2'];
 OAuth2.accessToken = 'YOUR ACCESS TOKEN';
 
-var apiInstance = new FlatApi.ClassApi();
-
-var _class = "_class_example"; // String | Unique identifier of the class
-
-var opts = { 
+let apiInstance = new FlatApi.ClassApi();
+let _class = "_class_example"; // String | Unique identifier of the class
+let opts = {
   'body': new FlatApi.ClassUpdate() // ClassUpdate | Details of the Class
 };
-
-var callback = function(error, data, response) {
+apiInstance.updateClass(_class, opts, (error, data, response) => {
   if (error) {
     console.error(error);
   } else {
     console.log('API called successfully. Returned data: ' + data);
   }
-};
-apiInstance.updateClass(_class, opts, callback);
+});
 ```
 
 ### Parameters
+
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
@@ -1029,6 +979,6 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
- - **Accept**: application/json
+- **Content-Type**: application/json
+- **Accept**: application/json
 

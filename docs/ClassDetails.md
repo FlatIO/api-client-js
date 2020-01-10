@@ -1,6 +1,7 @@
 # FlatApi.ClassDetails
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | The unique identifier of the class | [optional] 
@@ -18,6 +19,7 @@ Name | Type | Description | Notes
 **teachersGroup** | [**GroupDetails**](GroupDetails.md) |  | [optional] 
 **googleClassroom** | [**ClassDetailsGoogleClassroom**](ClassDetailsGoogleClassroom.md) |  | [optional] 
 **googleDrive** | [**ClassDetailsGoogleDrive**](ClassDetailsGoogleDrive.md) |  | [optional] 
+**microsoftGraph** | [**ClassDetailsMicrosoftGraph**](ClassDetailsMicrosoftGraph.md) |  | [optional] 
 **lti** | [**ClassDetailsLti**](ClassDetailsLti.md) |  | [optional] 
 **canvas** | [**ClassDetailsCanvas**](ClassDetailsCanvas.md) |  | [optional] 
 **clever** | [**ClassDetailsClever**](ClassDetailsClever.md) |  | [optional] 

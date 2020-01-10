@@ -1,6 +1,7 @@
 # FlatApi.Assignment
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **state** | **String** | State of the assignment | [optional] 
@@ -16,7 +17,7 @@ Name | Type | Description | Notes
 **googleClassroom** | [**GoogleClassroomCoursework**](GoogleClassroomCoursework.md) |  | [optional] 
 
 
-<a name="StateEnum"></a>
+
 ## Enum: StateEnum
 
 

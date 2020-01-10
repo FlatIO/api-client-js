@@ -1,10 +1,18 @@
 # FlatApi.ScoreDetails
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**id** | **String** | The unique identifier of the score | [optional] 
+**sharingKey** | **String** | The private sharing key of the score (available when the &#x60;privacy&#x60; mode is set to &#x60;privateLink&#x60;) | [optional] 
+**title** | **String** | The title of the score | [optional] 
+**privacy** | [**ScorePrivacy**](ScorePrivacy.md) |  | [optional] 
+**user** | [**UserPublicSummary**](UserPublicSummary.md) |  | [optional] 
+**htmlUrl** | **String** | The url where the score can be viewed in a web browser | [optional] 
 **subtitle** | **String** | Subtitle of the score | [optional] 
 **lyricist** | **String** | Lyricist of the score | [optional] 
+**arranger** | **String** | Arranger of the score | [optional] 
 **composer** | **String** | Composer of the score | [optional] 
 **description** | **String** | Description of the creation | [optional] 
 **tags** | **[String]** | Tags describing the score | [optional] 
@@ -26,5 +34,7 @@ Name | Type | Description | Notes
 **likes** | [**ScoreLikesCounts**](ScoreLikesCounts.md) |  | [optional] 
 **comments** | [**ScoreCommentsCounts**](ScoreCommentsCounts.md) |  | [optional] 
 **views** | [**ScoreViewsCounts**](ScoreViewsCounts.md) |  | [optional] 
+**plays** | [**ScorePlaysCounts**](ScorePlaysCounts.md) |  | [optional] 
+**collections** | **[String]** | The List of parent collections, which includes all the collections this score is included. Please note that you might not have access to all of them. | [optional] 
 
 

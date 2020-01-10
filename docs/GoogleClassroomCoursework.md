@@ -1,6 +1,7 @@
 # FlatApi.GoogleClassroomCoursework
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | Identifier of the coursework assigned by Classroom | [optional] 

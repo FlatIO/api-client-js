@@ -1,6 +1,7 @@
 # FlatApi.ScoreTrackCreation
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **title** | **String** | Title of the track | [optional] 

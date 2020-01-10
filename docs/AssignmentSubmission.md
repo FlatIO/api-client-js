@@ -1,9 +1,11 @@
 # FlatApi.AssignmentSubmission
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | Unique identifier of the submission | [optional] 
+**state** | **String** | State of the submission | [optional] 
 **classroom** | **String** | Unique identifier of the classroom where the assignment was posted  | [optional] 
 **assignment** | **String** | Unique identifier of the assignment | [optional] 
 **creator** | **String** | The User identifier of the student who created the submission | [optional] 
@@ -15,5 +17,18 @@ Name | Type | Description | Notes
 **returnFeedback** | **String** | The feedback associated with the return | [optional] 
 **returnCreator** | **String** | The User unique identifier of the teacher who returned the submission  | [optional] 
 **googleClassroom** | [**GoogleClassroomSubmission**](GoogleClassroomSubmission.md) |  | [optional] 
+
+
+
+## Enum: StateEnum
+
+
+* `created` (value: `"created"`)
+
+* `turnedIn` (value: `"turnedIn"`)
+
+* `returned` (value: `"returned"`)
+
+
 
 

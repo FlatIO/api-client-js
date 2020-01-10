@@ -1,6 +1,7 @@
 # FlatApi.GoogleClassroomSubmission
 
 ## Properties
+
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** | Identifier of the coursework submission assigned by Classroom | [optional] 

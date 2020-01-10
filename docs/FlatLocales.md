@@ -9,12 +9,26 @@
 
 * `fr` (value: `"fr"`)
 
+* `de` (value: `"de"`)
+
 * `it` (value: `"it"`)
+
+* `ja` (value: `"ja"`)
+
+* `ko` (value: `"ko"`)
+
+* `nl` (value: `"nl"`)
 
 * `pl` (value: `"pl"`)
 
+* `pt` (value: `"pt"`)
+
 * `ro` (value: `"ro"`)
 
-* `nl` (value: `"nl"`)
+* `ru` (value: `"ru"`)
+
+* `tr` (value: `"tr"`)
+
+* `zh-Hans` (value: `"zh-Hans"`)
 
 
