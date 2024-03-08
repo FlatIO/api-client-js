@@ -1,23 +1,36 @@
 {
   "name": "flat-api",
-  "version": "0.6.0",
-  "description": "JavaScript Client for Flat REST API (https://flat.io)",
-  "license": "Apache-2.0",
-  "repository": "https://github.com/FlatIO/api-client-js.git",
-  "main": "src/index.js",
+  "version": "0.7.0",
+  "description": "OpenAPI client for flat-api",
+  "author": "OpenAPI-Generator Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FlatIO/api-client-js.git"
+  },
+  "keywords": [
+    "axios",
+    "typescript",
+    "openapi-client",
+    "openapi-generator",
+    "flat-api"
+  ],
+  "license": "Unlicense",
+  "main": "./dist/index.js",
+  "typings": "./dist/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "sideEffects": false,
   "scripts": {
-    "test": "./node_modules/.bin/mocha --recursive",
-    "build": "./node_modules/.bin/browserify src/index.js > build/flat-api.js && cd build && ../node_modules/.bin/uglifyjs flat-api.js --source-map flat-api.js.map > flat-api.min.js",
-    "prepublish": "npm build"
+    "build": "tsc && tsc -p tsconfig.esm.json",
+    "prepare": "npm run build"
   },
   "dependencies": {
-    "superagent": "5.2.2",
-    "uglify-js": "^3.1.3"
+    "axios": "^1.6.1"
   },
   "devDependencies": {
-    "browserify": "^16.0.0",
-    "expect.js": "~0.3.1",
-    "mocha": "~6.2.0",
-    "sinon": "10.0.1"
+    "@types/node": "^12.11.5",
+    "typescript": "^4.0"
+  },
+  "publishConfig": {
+    "registry": "https://github.com/flatio/api-client-js"
   }
 }
