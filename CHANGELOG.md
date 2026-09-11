@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.0](https://github.com/FlatIO/api-client-js/compare/v0.6.0...1.0.0) (2026-09-11)
+
+The first stable release of the 1.x line. Regenerated against API specification 2.26.1, covering
+all 123 public operations. See [MIGRATION.md](MIGRATION.md) for the upgrade from 0.x.
+
+### Features
+
+* Typed errors: an API failure throws `FlatNotFoundError`, `FlatAuthenticationError` and the rest
+  of the `FlatError` hierarchy, rather than one generic error carrying a status code.
+* Retries with backoff, applied to every request including transport failures. Flat returns HTTP
+  403 for rate limiting with the reset in `X-RateLimit-Reset`, so the decision reads the response
+  body's `code` to tell a throttle from a genuine authorization failure.
+* Pagination that follows the `Link` header cursor, which the specification does not declare.
+* OAuth2 with transparent token refresh on expiry.
+* A finite request timeout, and `FlatClient` as a single entry point over the ten generated APIs.
+
+### Breaking Changes
+
+* Requires Node 22 or later.
+* No runtime dependencies. The package previously depended on axios, which it never used.
+* Models and operations are regenerated, so names follow the current specification.
+
 ## 0.6.0 (API v2.6.0)
 
 * feat(collections): Add new Collections API endpoints

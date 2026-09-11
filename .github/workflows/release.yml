@@ -7,10 +7,10 @@ name: Release
 
 on:
   push:
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
-  contents: read
+  contents: write # create the GitHub release
   id-token: write # OIDC for npm trusted publishing and provenance (FR-021a, FR-021b)
 
 jobs:
@@ -53,7 +53,9 @@ jobs:
 
       - name: The tag must match the packaged version
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          # Every tag in this repository, and in api-reference, carries the v. The version
+          # inside the package never does, so the tag is compared with it stripped.
+          TAG="${GITHUB_REF_NAME#v}"
           PKG="$(node -p "require('./package.json').version")"
           [ "$TAG" = "$PKG" ] || { echo "tag $TAG != package.json $PKG"; exit 1; }
 
@@ -66,3 +68,19 @@ jobs:
       # No NODE_AUTH_TOKEN: npm trusts this repository and workflow by OIDC.
       - name: Publish to npm (trusted publishing)
         run: npm publish --provenance --access public
+
+      # The tag alone left the repository's Releases page showing a version from years ago as
+      # "Latest", which is what anyone browsing the repository sees first. The notes come from the
+      # CHANGELOG section for this version, so the release says what changed rather than nothing.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES="$(awk -v v="$VERSION" '
+            $0 ~ "^## \\[?" v "\\]?" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md)"
+          [ -n "$NOTES" ] || NOTES="See CHANGELOG.md for $VERSION."
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$NOTES"
