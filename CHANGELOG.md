@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/FlatIO/api-client-js/compare/v0.6.0...1.0.0) (2026-09-11)
+## [1.0.0](https://github.com/FlatIO/api-client-js/compare/v0.6.0...v1.0.0) (2026-09-11)
 
 The first stable release of the 1.x line. Regenerated against API specification 2.26.1, covering
 all 123 public operations. See [MIGRATION.md](MIGRATION.md) for the upgrade from 0.x.
