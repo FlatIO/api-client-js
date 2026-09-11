@@ -66,7 +66,19 @@ jobs:
       - run: pnpm run build
 
       # No NODE_AUTH_TOKEN: npm trusts this repository and workflow by OIDC.
+      - name: Skip the publish if this version is already on npm
+        id: published
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if npm view "flat-api@$VERSION" version >/dev/null 2>&1; then
+            echo "flat-api $VERSION is already on npm; nothing to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm (trusted publishing)
+        if: steps.published.outputs.skip != 'true'
         run: npm publish --provenance --access public
 
       # The tag alone left the repository's Releases page showing a version from years ago as
@@ -83,4 +95,10 @@ jobs:
             found { print }
           ' CHANGELOG.md)"
           [ -n "$NOTES" ] || NOTES="See CHANGELOG.md for $VERSION."
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$NOTES"
+          # Creating one that exists is an error, and a re-run of a release that already happened
+          # should be a no-op rather than a red build.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; nothing to do."
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$NOTES"
+          fi
