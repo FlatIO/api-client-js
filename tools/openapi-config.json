@@ -1,0 +1,10 @@
+{
+  "npmName": "flat-api",
+  "npmVersion": "1.0.0",
+  "supportsES6": true,
+  "typescriptThreePlus": true,
+  "withoutRuntimeChecks": false,
+  "hideGenerationTimestamp": true,
+  "sortParamsByRequiredFlag": true,
+  "importFileExtension": ".js"
+}

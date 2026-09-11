@@ -1,0 +1,29 @@
+schema_version: 1
+
+language: typescript
+package_name: flat-api
+registry: npm
+
+generator:
+  name: typescript-fetch
+  version: 7.24.0
+  config: tools/openapi-config.json
+
+generated_paths:
+  - src/**
+  - docs/reference/**
+  - .openapi-generator/**
+  - OPERATIONS.json
+
+version_file:
+  path: package.json
+  pattern: '"version": "(?P<version>[0-9]+\.[0-9]+\.[0-9]+)"'
+
+runtime_matrix:
+  - version: '22'
+    upstream_eol: 2027-04-30
+  - version: '24'
+    upstream_eol: 2028-04-30
+
+smoke:
+  entrypoint: tools/smoke.ts

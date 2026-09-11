@@ -1,0 +1,68 @@
+name: Release
+
+# Publishing is triggered by a version tag and nothing else (FR-019a).
+#
+# npm trusted publishing requires npm >= 11.5.1 and Node >= 22.14.0, and a trusted publisher
+# configuration created after 2026-05-20 must explicitly select an allowed action.
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: read
+  id-token: write # OIDC for npm trusted publishing and provenance (FR-021a, FR-021b)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing has hard version floors. Assert them rather than assuming: a runner
+      # image change that silently lowers either one would otherwise fail at the publish step with
+      # an opaque auth error.
+      - name: Assert trusted-publishing prerequisites
+        run: |
+          npm install -g npm@latest
+          NODE_MAJOR="$(node -p 'process.versions.node.split(".").map(Number)[0]')"
+          NODE_MINOR="$(node -p 'process.versions.node.split(".").map(Number)[1]')"
+          NPM_VERSION="$(npm --version)"
+          echo "node $(node --version), npm ${NPM_VERSION}"
+
+          node -e '
+            const [maj, min] = process.versions.node.split(".").map(Number);
+            if (maj < 22 || (maj === 22 && min < 14)) {
+              console.error(`node ${process.versions.node} < 22.14.0, required for npm trusted publishing`);
+              process.exit(1);
+            }
+          '
+          node -e '
+            const [maj, min, patch] = process.argv[1].split(".").map(Number);
+            const ok = maj > 11 || (maj === 11 && (min > 5 || (min === 5 && patch >= 1)));
+            if (!ok) {
+              console.error(`npm ${process.argv[1]} < 11.5.1, required for trusted publishing`);
+              process.exit(1);
+            }
+          ' "$NPM_VERSION"
+
+      - name: The tag must match the packaged version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG="$(node -p "require('./package.json').version")"
+          [ "$TAG" = "$PKG" ] || { echo "tag $TAG != package.json $PKG"; exit 1; }
+
+      # pnpm, not npm: pnpm-lock.yaml is the lockfile in this repository and npm ignores it.
+      # `npm ci || npm install` always fell through to an unlocked `npm install`.
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+
+      # No NODE_AUTH_TOKEN: npm trusts this repository and workflow by OIDC.
+      - name: Publish to npm (trusted publishing)
+        run: npm publish --provenance --access public
