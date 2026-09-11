@@ -1,0 +1,39 @@
+name: CI
+
+# Build and load checks. Everything that needs a credential runs elsewhere and reports
+# back as a commit status, so no secret is reachable from this workflow.
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # pnpm, not npm: pnpm-lock.yaml is the lockfile in this repository and npm ignores it.
+      # `npm ci || npm install` always fell through to an unlocked `npm install`.
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: Both module formats must resolve (FR-006c)
+        run: |
+          node -e "const m=require('./dist/index.js'); if(!m) process.exit(1); console.log('cjs ok')"
+          node --input-type=module -e "import('./dist/esm/index.js').then(()=>console.log('esm ok'))"
