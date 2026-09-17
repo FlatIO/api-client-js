@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.1](https://github.com/FlatIO/api-client-js/compare/v1.0.0...v1.0.1) (2026-09-17)
+
+Regenerated against [API specification 2.26.2](https://github.com/FlatIO/api-reference/releases/tag/v2.26.2).
+
+Patch release. No breaking change.
+
+* Optical Music Recognition (OMR):
+  * `POST /omr/jobs` (`createOmrJob`): Added `autoRotate`. Off by default: pages are recognized in the orientation they are uploaded in, which is right when your client lets the user rotate pages before upload. Set it to `true` when it does not (for example a server-to-server integration importing scans as they come) and the server detects and corrects pages uploaded sideways or upside down before recognition. Small tilt correction always runs. `OmrJob` echoes the value.
+* Documentation only, no change on the wire.
+
+Full changelog: https://flat.io/developers/docs/api/changelog
+
 ## [1.0.0](https://github.com/FlatIO/api-client-js/compare/v0.6.0...v1.0.0) (2026-09-11)
 
 The first stable release of the 1.x line. Regenerated against API specification 2.26.1, covering
