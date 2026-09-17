@@ -1,7 +1,7 @@
 
 # ClassDetailsMfc
 
-Meta information provided by Canvs LMS
+Meta information provided by MusicFirst Classroom
 
 ## Properties
 

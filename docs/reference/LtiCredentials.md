@@ -1,7 +1,7 @@
 
 # LtiCredentials
 
-A couple of LTI 1.x OAuth credentials
+A pair of LTI 1.1 OAuth credentials
 
 ## Properties
 

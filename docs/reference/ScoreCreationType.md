@@ -1,7 +1,7 @@
 
 # ScoreCreationType
 
-The type of creation (an orginal, an arrangement)
+The type of creation (an original, an arrangement)
 
 ## Properties
 

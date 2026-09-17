@@ -1,7 +1,7 @@
 
 # ClassAttachmentCreation
 
-Attachment creation for an assignment or stream post. This attachment must contain a `score` or an `url`, all the details of this one will be resolved and returned as `ClassAttachment` once the assignment or stream post is created. 
+Attachment creation for an assignment or stream post. This attachment must contain a `score` or a `url`; its details are resolved and returned as a `MediaAttachment` once the assignment or stream post is created. 
 
 ## Properties
 

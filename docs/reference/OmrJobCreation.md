@@ -9,6 +9,7 @@ Name | Type
 ------------ | -------------
 `output` | [OmrJobOutput](OmrJobOutput.md)
 `interactiveSteps` | [Array&lt;OmrStepName&gt;](OmrStepName.md)
+`autoRotate` | boolean
 `locales` | Array&lt;string&gt;
 `collection` | string
 `idempotencyKey` | string
@@ -24,6 +25,7 @@ import type { OmrJobCreation } from 'flat-api'
 const example = {
   "output": null,
   "interactiveSteps": null,
+  "autoRotate": null,
   "locales": null,
   "collection": null,
   "idempotencyKey": null,

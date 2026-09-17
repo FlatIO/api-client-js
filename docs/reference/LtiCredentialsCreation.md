@@ -1,7 +1,7 @@
 
 # LtiCredentialsCreation
 
-Creation of a couple of LTI 1.x OAuth credentials
+Creation of a pair of LTI 1.1 OAuth credentials
 
 ## Properties
 

@@ -6,7 +6,7 @@ All URIs are relative to *https://api.flat.io/v2*
 |------------- | ------------- | -------------|
 | [**countOrgaUsers**](OrganizationApi.md#countorgausers) | **GET** /organizations/users/count | Count the organization users using the provided filters |
 | [**createLtiConfiguration**](OrganizationApi.md#createlticonfiguration) | **POST** /organizations/lti/configurations | Create a new LTI configuration (1.1 or 1.3) |
-| [**createLtiCredentials**](OrganizationApi.md#createlticredentials) | **POST** /organizations/lti/credentials | Create a new couple of LTI 1.x credentials |
+| [**createLtiCredentials**](OrganizationApi.md#createlticredentials) | **POST** /organizations/lti/credentials | Create a new pair of LTI 1.1 credentials |
 | [**createOrganizationInvitation**](OrganizationApi.md#createorganizationinvitation) | **POST** /organizations/invitations | Create a new invitation to join the organization |
 | [**createOrganizationUser**](OrganizationApi.md#createorganizationuser) | **POST** /organizations/users | Create a new user account |
 | [**createOrganizationUserAccessToken**](OrganizationApi.md#createorganizationuseraccesstoken) | **POST** /organizations/users/{user}/accessToken | Create a delegated API access token for an organization user |
@@ -180,7 +180,7 @@ example().catch(console.error);
 
 > LtiCredentials createLtiCredentials(body)
 
-Create a new couple of LTI 1.x credentials
+Create a new pair of LTI 1.1 credentials
 
 DEPRECATED. Use the unified endpoints under &#x60;/organizations/lti/configurations&#x60;. Note: Teachers may be restricted by the organization privacy setting &#x60;lti1p1AllowTeachersCredentials&#x60;.  Flat for Education is a Certified LTI Provider. You can use these API methods to automate the creation of LTI credentials. You can read more about our LTI implementation, supported components and LTI Endpoints in our [Developer Documentation](https://flat.io/developers/docs/lti/). 
 
@@ -255,7 +255,7 @@ example().catch(console.error);
 
 Create a new invitation to join the organization
 
-This method creates and sends invitation for teachers and admins.  Invitations can only be used by new Flat users or users who are not part of the organization yet.  If the email of the user is already associated to a user of your organization, the API will simply update the role of the existing user and won\&#39;t send an invitation. In this case, the property &#x60;usedBy&#x60; will be directly filled with the uniquer identifier of the corresponding user. 
+This method creates and sends an invitation for teachers and admins.  Invitations can only be used by new Flat users or users who are not part of the organization yet.  If the email of the user is already associated to a user of your organization, the API will simply update the role of the existing user and won\&#39;t send an invitation. In this case, the property &#x60;usedBy&#x60; will be directly filled with the unique identifier of the corresponding user. 
 
 ### Example
 
@@ -1016,7 +1016,7 @@ async function example() {
   const body = {
     // string | Unique identifier of the Flat account 
     user: user_example,
-    // boolean | If `true`, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal.  (optional)
+    // boolean | If `true`, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before performing this operation, you need to be sure that the user is at least 13 years old and has read and agreed to the Individual Terms of Service of Flat available on https://flat.io/legal.  (optional)
     convertToIndividual: true,
   } satisfies RemoveOrganizationUserRequest;
 
@@ -1038,7 +1038,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **user** | `string` | Unique identifier of the Flat account  | [Defaults to `undefined`] |
-| **convertToIndividual** | `boolean` | If &#x60;true&#x60;, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before realizing this operation, you need to be sure that the user is at least 13 years old and that this one has read and agreed to the Individual Terms of Services of Flat available on https://flat.io/legal.  | [Optional] [Defaults to `undefined`] |
+| **convertToIndividual** | `boolean` | If &#x60;true&#x60;, the account will be only removed from the organization and converted into an individual account on our public website, https://flat.io. This operation will remove the education-related data from the account. Before performing this operation, you need to be sure that the user is at least 13 years old and has read and agreed to the Individual Terms of Service of Flat available on https://flat.io/legal.  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
