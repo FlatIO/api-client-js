@@ -342,7 +342,7 @@ async function example() {
   const body = {
     // string | Unique identifier of a Flat group 
     group: group_example,
-    // string | Filter the score forked from the score id `parent` (optional)
+    // string | Only return the scores forked from the score `parent` (optional)
     parent: parent_example,
   } satisfies GetGroupScoresRequest;
 
@@ -364,7 +364,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **group** | `string` | Unique identifier of a Flat group  | [Defaults to `undefined`] |
-| **parent** | `string` | Filter the score forked from the score id &#x60;parent&#x60; | [Optional] [Defaults to `undefined`] |
+| **parent** | `string` | Only return the scores forked from the score &#x60;parent&#x60; | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -457,7 +457,7 @@ example().catch(console.error);
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-| **200** | The list of users member of the group |  -  |
+| **200** | The users who are members of the group |  -  |
 | **404** | Not Found - Group not found or insufficient permissions |  -  |
 | **0** | Error |  -  |
 

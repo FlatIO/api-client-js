@@ -118,7 +118,7 @@ example().catch(console.error);
 
 Add a user to the class
 
-This method can be used by a teacher of the class to enroll another Flat user into the class.  Only users that are part of your Organization can be enrolled in a class of this same Organization.  When enrolling a user in the class, Flat will automatically add this user to the corresponding Class group, based on this role in the Organization. 
+This method can be used by a teacher of the class to enroll another Flat user into the class.  Only users that are part of your Organization can be enrolled in a class of this same Organization.  When enrolling a user in the class, Flat will automatically add this user to the corresponding Class group, based on their role in the Organization. 
 
 ### Example
 
@@ -268,7 +268,7 @@ example().catch(console.error);
 
 Archive the class
 
-Mark the class as &#x60;archived&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
+Mark the class as &#x60;archived&#x60;. When this course is synchronized with another app, like Google Classroom, this state will automatically be updated. 
 
 ### Example
 
@@ -418,7 +418,7 @@ example().catch(console.error);
 
 Create a new class
 
-Classrooms on Flat allow you to create activities with assignments and post content to a specific group.  When creating a class, Flat automatically creates two groups: one for the teachers of the course, one for the students. The creator of this class is automatically added to the teachers group.  If the classsroom is synchronized with another application like Google Classroom, some of the meta information will automatically be updated.  You can add users to this class using &#x60;PUT /classes/{class}/users/{user}&#x60;, they will automatically added to the group based on their role on Flat. Users can also enroll themselves to this class using &#x60;POST /classes/enroll/{enrollmentCode}&#x60; and the &#x60;enrollmentCode&#x60; returned in the &#x60;ClassDetails&#x60; response. 
+Classrooms on Flat allow you to create activities with assignments and post content to a specific group.  When creating a class, Flat automatically creates two groups: one for the teachers of the course, one for the students. The creator of this class is automatically added to the teachers group.  If the classroom is synchronized with another application like Google Classroom, some of the meta information will automatically be updated.  You can add users to this class using &#x60;PUT /classes/{class}/users/{user}&#x60;, they will automatically be added to the group based on their role on Flat. Users can also enroll themselves to this class using &#x60;POST /classes/enroll/{enrollmentCode}&#x60; and the &#x60;enrollmentCode&#x60; returned in the &#x60;ClassDetails&#x60; response. 
 
 ### Example
 
@@ -566,7 +566,7 @@ example().catch(console.error);
 
 Create or edit a submission
 
-Use this method as a student to create, update and submit a submission related to an assignment. Students can only set &#x60;attachments&#x60; and &#x60;submit&#x60;. Teachers can use &#x60;PUT /classes/{class}/assignments/{assignment}/submissions/{submission}&#x60; to update a submission by id. 
+Use this method as a student to create, update and submit a submission related to an assignment. Students can only set &#x60;attachments&#x60;, &#x60;playback&#x60;, &#x60;exercisesIds&#x60; and &#x60;submit&#x60;. Teachers can use &#x60;PUT /classes/{class}/assignments/{assignment}/submissions/{submission}&#x60; to update a submission by id. 
 
 ### Example
 
@@ -644,7 +644,7 @@ example().catch(console.error);
 
 Create a test student account
 
-Test students account can be created by teachers an admin and be used to experiment the assignments.  - They are automatically added to the class. - They can be reset using this API endpoint (a new account will be created and the previous one scheduled for deletion). - These accounts don\&#39;t use a user license. 
+Test student accounts can be created by teachers and admins to try out the assignments.  - They are automatically added to the class. - They can be reset using this API endpoint (a new account will be created and the previous one scheduled for deletion). - These accounts don\&#39;t use a user license. 
 
 ### Example
 
@@ -869,7 +869,7 @@ example().catch(console.error);
 
 Reset a submission
 
-Use this method as a teacher to reset a submission and allow student to start over the assignment 
+Use this method as a teacher to reset a submission and allow the student to start the assignment over 
 
 ### Example
 
@@ -1026,7 +1026,7 @@ example().catch(console.error);
 
 Edit a submission
 
-Use this method as a teacher to update the different submission and give feedback. Teachers can only set &#x60;return&#x60;, &#x60;draftGrade&#x60; and &#x60;grade&#x60; 
+Use this method as a teacher to update a submission and give feedback. Teachers can only set &#x60;return&#x60;, &#x60;draftGrade&#x60; and &#x60;grade&#x60;. 
 
 ### Example
 
@@ -1107,7 +1107,7 @@ example().catch(console.error);
 
 Join a class
 
-Use this method to join a class using an enrollment code given one of the teacher of this class. This code is also available in the &#x60;ClassDetails&#x60; returned to the teachers when creating the class or listing / fetching a specific class.  Flat will automatically add the user to the corresponding class group based on this role in the organization. 
+Use this method to join a class using an enrollment code given by one of the teachers of this class. This code is also available in the &#x60;ClassDetails&#x60; returned to the teachers when creating the class or listing / fetching a specific class.  Flat will automatically add the user to the corresponding class group based on their role in the organization. 
 
 ### Example
 
@@ -1474,7 +1474,7 @@ example().catch(console.error);
 
 List submissions related to the score
 
-This API call will list the different assignments submissions where the score is attached. This method can be used by anyone that are part of the organization and have at least read access to the document. 
+This API call will list the different assignments submissions where the score is attached. This method can be used by anyone who is part of the organization and has at least read access to the document. 
 
 ### Example
 
@@ -1686,7 +1686,7 @@ example().catch(console.error);
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-| **200** | The comments of the score |  -  |
+| **200** | The comments of the submission |  -  |
 | **403** | Not granted to access to this submission |  -  |
 | **404** | Submission not found |  -  |
 | **0** | Error |  -  |
@@ -2224,7 +2224,7 @@ example().catch(console.error);
 
 Unarchive the class
 
-Mark the class as &#x60;active&#x60;. When this course is synchronized with another app, like Google Classroom, this state will be automatically be updated. 
+Mark the class as &#x60;active&#x60;. When this course is synchronized with another app, like Google Classroom, this state will automatically be updated. 
 
 ### Example
 

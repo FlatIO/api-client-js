@@ -10,6 +10,7 @@ Name | Type
 `status` | [OmrJobStatus](OmrJobStatus.md)
 `output` | [OmrJobOutput](OmrJobOutput.md)
 `interactiveSteps` | [Array&lt;OmrStepName&gt;](OmrStepName.md)
+`autoRotate` | boolean
 `locales` | Array&lt;string&gt;
 `currentStep` | [OmrStepName](OmrStepName.md)
 `pendingStep` | [OmrPendingStep](OmrPendingStep.md)
@@ -35,6 +36,7 @@ const example = {
   "status": null,
   "output": null,
   "interactiveSteps": null,
+  "autoRotate": null,
   "locales": null,
   "currentStep": null,
   "pendingStep": null,

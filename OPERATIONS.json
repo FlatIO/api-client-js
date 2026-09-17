@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_version": "2.26.1",
+  "spec_version": "2.26.2",
   "generator": {
     "name": "typescript-fetch",
     "version": "7.24.0"
@@ -570,7 +570,7 @@
       "operation_id": "getScoreSubmissions",
       "method": "get",
       "path": "/scores/{score}/submissions",
-      "symbol": "ScoreApi.getScoreSubmissions",
+      "symbol": "ClassApi.getScoreSubmissions",
       "paginated": false,
       "documented": true
     },
@@ -634,7 +634,7 @@
       "operation_id": "getUserLikes",
       "method": "get",
       "path": "/users/{user}/likes",
-      "symbol": "ScoreApi.getUserLikes",
+      "symbol": "UserApi.getUserLikes",
       "paginated": true,
       "documented": true
     },
@@ -642,7 +642,7 @@
       "operation_id": "getUserScores",
       "method": "get",
       "path": "/users/{user}/scores",
-      "symbol": "ScoreApi.getUserScores",
+      "symbol": "UserApi.getUserScores",
       "paginated": true,
       "documented": true
     },

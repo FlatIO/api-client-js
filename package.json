@@ -1,6 +1,6 @@
 {
   "name": "flat-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The official JavaScript and TypeScript client for the Flat API",
   "author": "Flat <developers@flat.io>",
   "repository": {

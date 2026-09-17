@@ -36,7 +36,7 @@ async function example() {
   const api = new UserApi(config);
 
   const body = {
-    // string | This route parameter is the unique identifier of the user. You can specify an email instead of an unique identifier. If you are executing this request authenticated, you can use `me` as a value instead of the current User unique identifier to work on the current authenticated user. 
+    // string | This route parameter is the unique identifier of the user. You can specify an email instead of a unique identifier. If you are executing this request authenticated, you can use `me` as a value instead of the current User unique identifier to work on the current authenticated user. 
     user: user_example,
   } satisfies GetUserRequest;
 
@@ -57,7 +57,7 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **user** | `string` | This route parameter is the unique identifier of the user. You can specify an email instead of an unique identifier. If you are executing this request authenticated, you can use &#x60;me&#x60; as a value instead of the current User unique identifier to work on the current authenticated user.  | [Defaults to `undefined`] |
+| **user** | `string` | This route parameter is the unique identifier of the user. You can specify an email instead of a unique identifier. If you are executing this request authenticated, you can use &#x60;me&#x60; as a value instead of the current User unique identifier to work on the current authenticated user.  | [Defaults to `undefined`] |
 
 ### Return type
 
@@ -170,7 +170,7 @@ example().catch(console.error);
 
 List user\&#39;s scores
 
-Get the list of public scores owned by a User. If you want to access to private scores, please use the [Collections API](#tag/Collection). For example &#x60;GET /v2/collections/allScores/scores&#x60; to list all recently updated scores. 
+Get the list of public scores owned by a User. If you want to access private scores, please use the [Collections API](#tag/Collection). For example &#x60;GET /v2/collections/allScores/scores&#x60; to list all recently updated scores. 
 
 ### Example
 
